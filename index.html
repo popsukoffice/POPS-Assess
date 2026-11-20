@@ -162,6 +162,7 @@
 <script src="config.js"></script>
 <script>
 window.__popsLoaded = true;
+setInterval(function(){ try { if (window.speechSynthesis && !speechSynthesis.speaking) { var u = new SpeechSynthesisUtterance("."); u.volume = 0; speechSynthesis.speak(u); } } catch (e) {} }, 20000);
 (() => {
   const $ = id => document.getElementById(id);
   const CFG = window.ASSESS_CFG || {};
@@ -241,14 +242,17 @@ window.__popsLoaded = true;
   function utter(t, rate) {
     const u = new SpeechSynthesisUtterance(t); if (voice) u.voice = voice; u.lang = voice ? voice.lang : "en-GB"; u.rate = rate || 0.9; return u;
   }
+  function warmUp() { if (!TTS) return; try { const u = utter("ready", 1); u.volume = 0; speechSynthesis.speak(u); } catch (e) {} }
   function stopSay() { sayTimers.forEach(clearTimeout); sayTimers = []; if (TTS) { try { speechSynthesis.cancel(); speechSynthesis.resume(); } catch (e) {} } }
   function playSeq(items, gap) {
     stopSay();
-    items.forEach((x, i) => sayTimers.push(setTimeout(() => { const t = /^\d$/.test(String(x)) ? DIG[Number(x)] : String(x); speechSynthesis.speak(utter(t, 0.8)); }, 400 + i * gap)));
+    warmUp();
+    items.forEach((x, i) => sayTimers.push(setTimeout(() => { const t = /^\d$/.test(String(x)) ? DIG[Number(x)] : String(x); speechSynthesis.speak(utter(t, 0.8)); }, 1100 + i * gap)));
   }
   function playText(text, rate) {
     stopSay();
-    (String(text).match(/[^.!?]+[.!?]*/g) || [text]).map(x => x.trim()).filter(Boolean).forEach(x => speechSynthesis.speak(utter(x, rate)));
+    warmUp();
+    (String(text).match(/[^.!?]+[.!?]*/g) || [text]).map(x => x.trim()).filter(Boolean).forEach((x, i) => { if (i === 0) x = ", " + x; speechSynthesis.speak(utter(x, rate)); });
   }
   async function soundReady() {
     soundOn = true; $("snd").hidden = true; $("snd-ok").hidden = false;
@@ -256,7 +260,7 @@ window.__popsLoaded = true;
   }
   $("snd").onclick = () => { if (TTS) { try { speechSynthesis.cancel(); speechSynthesis.resume(); const u = utter("Sound is on.", 0.9); speechSynthesis.speak(u); } catch (e) {} } soundReady(); };
   function audioView(st) {
-    const audio = !!st.audio && TTS;
+    const audio = !!st.audio && TTS; wantFast = audio && soundOn;
     $("snd").hidden = !audio || soundOn; $("snd-ok").hidden = !(audio && soundOn);
     if (audio && soundOn) soundReady();
     if (st.audio && !TTS) { try { rpc("child_answer", { p_code: code, p_seq: seq, p_answer: "__no_sound" }); } catch {} }
@@ -340,8 +344,10 @@ window.__popsLoaded = true;
       render(view);
     } catch { if (++failing >= 3) $("net").hidden = false; }
   }
-  function startPoll() { stopPoll(); tick(); pollTimer = setInterval(tick, 700); }
-  function stopPoll() { clearInterval(pollTimer); pollTimer = null; }
+  let wantFast = false;
+  function loop() { pollTimer = setTimeout(async () => { await tick(); if (pollTimer !== null) loop(); }, wantFast ? 300 : 700); }
+  function startPoll() { stopPoll(); tick(); loop(); }
+  function stopPoll() { clearTimeout(pollTimer); pollTimer = null; }
 
   async function join() {
     code = $("code").value.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
