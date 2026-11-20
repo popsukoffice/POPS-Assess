@@ -241,7 +241,7 @@ window.__popsLoaded = true;
   function utter(t, rate) {
     const u = new SpeechSynthesisUtterance(t); if (voice) u.voice = voice; u.lang = voice ? voice.lang : "en-GB"; u.rate = rate || 0.9; return u;
   }
-  function stopSay() { sayTimers.forEach(clearTimeout); sayTimers = []; if (TTS) speechSynthesis.cancel(); }
+  function stopSay() { sayTimers.forEach(clearTimeout); sayTimers = []; if (TTS) { try { speechSynthesis.cancel(); speechSynthesis.resume(); } catch (e) {} } }
   function playSeq(items, gap) {
     stopSay();
     items.forEach((x, i) => sayTimers.push(setTimeout(() => { const t = /^\d$/.test(String(x)) ? DIG[Number(x)] : String(x); speechSynthesis.speak(utter(t, 0.8)); }, 400 + i * gap)));
@@ -254,7 +254,7 @@ window.__popsLoaded = true;
     soundOn = true; $("snd").hidden = true; $("snd-ok").hidden = false;
     try { await rpc("child_answer", { p_code: code, p_seq: seq, p_answer: "__sound_on" }); } catch {}
   }
-  $("snd").onclick = () => { if (TTS) { speechSynthesis.speak(utter(" ", 1)); } soundReady(); };
+  $("snd").onclick = () => { if (TTS) { try { speechSynthesis.cancel(); speechSynthesis.resume(); const u = utter("Sound is on.", 0.9); speechSynthesis.speak(u); } catch (e) {} } soundReady(); };
   function audioView(st) {
     const audio = !!st.audio && TTS;
     $("snd").hidden = !audio || soundOn; $("snd-ok").hidden = !(audio && soundOn);
