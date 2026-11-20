@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Reading and maths activity | POPS UK</title>
+<style>
+  :root { --bg:#ffffff; --ink:#10203a; --muted:#2b4057; --brand:#0e6f66; --edge:#9fc9c2; --card:#ffffff; --scale:1; }
+  [data-tint="cream"] { --bg:#fff7e0; }
+  [data-tint="blue"]  { --bg:#e6f1fb; }
+  [data-tint="green"] { --bg:#e4f4ed; }
+  [data-tint="grey"]  { --bg:#eceff3; }
+  * { box-sizing:border-box; }
+  html { font-size:calc(18px * var(--scale)); }
+  body { margin:0; background:var(--bg); color:var(--ink); font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif; line-height:1.5; min-height:100vh; display:flex; flex-direction:column; }
+  body[data-font="verdana"] { font-family:Verdana,Tahoma,"DejaVu Sans",sans-serif; letter-spacing:.02em; }
+  header { display:flex; align-items:center; gap:14px; padding:10px 16px; background:#fff; border-bottom:3px solid var(--brand); }
+  header img { height:54px; width:auto; }
+  header strong { font-size:1.05rem; }
+  main { flex:1; width:100%; max-width:900px; margin:0 auto; padding:18px 16px 30px; }
+  .panel { background:var(--card); border:3px solid var(--edge); border-radius:22px; padding:clamp(16px,4vw,30px); }
+  h1 { font-size:clamp(1.4rem,5vw,2rem); margin:0 0 .5em; }
+  p { margin:.4em 0; }
+  .muted { color:var(--muted); font-weight:600; }
+  button, input { font:inherit; }
+  .btn { min-height:56px; padding:10px 22px; border-radius:16px; border:3px solid var(--brand); background:var(--brand); color:#fff; font-weight:800; font-size:1.1rem; cursor:pointer; }
+  .btn.alt { background:#fff; color:var(--brand); }
+  .btn:disabled { opacity:.55; cursor:default; }
+  .btn:focus-visible, .opt:focus-visible, .key:focus-visible, input:focus-visible { outline:4px solid #1a73e8; outline-offset:3px; }
+  .code { width:100%; font-size:2rem; font-weight:900; letter-spacing:.35em; text-align:center; text-transform:uppercase; padding:12px; border:3px solid var(--edge); border-radius:16px; margin:.6em 0 1em; }
+  .center { text-align:center; }
+  .word { font-size:clamp(3rem,16vw,8rem); font-weight:800; text-align:center; padding:clamp(24px,10vh,90px) 8px; word-break:normal; overflow-wrap:normal; }
+  .passage { background:#fff; border:2px solid var(--edge); border-radius:18px; padding:16px 18px; font-size:1.15rem; line-height:1.75; margin-bottom:16px; }
+  .q { font-size:1.35rem; font-weight:800; margin:10px 0 12px; }
+  .opts { display:grid; gap:10px; }
+  .opt { text-align:left; min-height:60px; padding:12px 16px; border-radius:16px; border:3px solid var(--edge); background:#fff; color:var(--ink); font-size:1.1rem; font-weight:700; cursor:pointer; }
+  .opt[aria-checked="true"] { border-color:var(--brand); background:#d9f1ec; box-shadow:inset 0 0 0 2px var(--brand); }
+  .sent { margin-top:12px; font-weight:800; color:#0b5a52; min-height:1.6em; }
+  .visual { font-size:2.4rem; letter-spacing:.1em; margin:8px 0 12px; word-break:break-all; }
+  .answerbox { font-size:2.4rem; font-weight:900; text-align:center; min-height:76px; border:3px solid var(--edge); border-radius:16px; background:#fff; padding:8px; margin:8px 0 12px; }
+  .pad { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; max-width:420px; margin:0 auto 12px; }
+  .key { min-height:62px; font-size:1.6rem; font-weight:800; border-radius:14px; border:3px solid var(--edge); background:#fff; color:var(--ink); cursor:pointer; }
+  .tools { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin-top:18px; }
+  .tools button { min-height:44px; padding:6px 14px; border-radius:12px; border:2px solid var(--edge); background:#fff; color:var(--ink); font-weight:700; cursor:pointer; }
+  .net { position:fixed; left:0; right:0; bottom:0; background:#fff3d6; border-top:3px solid #d99a1c; padding:10px; text-align:center; font-weight:800; }
+  [hidden] { display:none !important; }
+  footer { text-align:center; color:var(--muted); font-size:.8rem; padding:10px; }
+  .ltgrid { display:grid; grid-template-columns:repeat(7,1fr); gap:8px; max-width:760px; margin:.4em auto 0; }
+  .ltgrid .lt { font-family:"Andika","Lexend","Comic Sans MS","Chalkboard SE","Century Gothic",Arial,sans-serif; font-size:clamp(1.9rem,7vmin,3.6rem); font-weight:600; line-height:1.1; padding:.05em 0; background:#fff; border:2px solid #c9d6e2; border-radius:14px; text-align:center; user-select:none; }
+  .rangrid { display:grid; gap:6px; max-width:900px; margin:.4em auto 0; }
+  .rangrid .rc { font-family:"Andika","Lexend","Comic Sans MS",Arial,sans-serif; font-size:clamp(1.6rem,5.5vmin,3rem); font-weight:600; text-align:center; line-height:1.3; }
+  .rangrid .rc.dot { width:clamp(26px,5.5vmin,48px); height:clamp(26px,5.5vmin,48px); border-radius:50%; margin:6px auto; }
+  .rangrid:not(.ran-go) .rc { font-size:clamp(2.4rem,9vmin,4.5rem); } .rangrid:not(.ran-go) .rc.dot { width:clamp(44px,10vmin,80px); height:clamp(44px,10vmin,80px); }
+  @media (max-width:520px) { .ltgrid { grid-template-columns:repeat(5,1fr); } }
+  #v-letters h2 { margin:.1em 0; } #lt-text { font-size:1.05rem; margin:.2em 0; }
+  .ear { font-size: 5rem; line-height: 1; margin: .2em 0; }
+  .bigp { font-size: calc(1.35rem * var(--scale, 1)); margin: .4em 0; }
+</style>
+<script>
+/* browser check (ES5 on purpose): warns instead of showing a blank page on very old browsers */
+(function(){var need=!!(window.fetch&&window.Promise);setTimeout(function(){var ok=window.__popsLoaded&&need;if(ok)return;var d=document.createElement("div");d.setAttribute("role","alert");d.style.cssText="position:fixed;left:0;right:0;top:0;z-index:99999;background:#fff3cd;color:#3d2f00;border-bottom:3px solid #c28b00;padding:14px 18px;font:16px/1.4 Arial,sans-serif";d.textContent="This page needs a recent browser. Please update Chrome, Edge, Firefox or Safari (Safari 15.4 or newer, iPadOS 15.4 or newer), or open this page in a different browser.";document.body.appendChild(d)},2500)})();
+</script>
+</head>
+<body data-tint="" data-font="">
+<header>
+  <img src="logo.png" alt="Positive Outcomes Psychology Service">
+  <strong>Reading and maths activity</strong>
+</header>
+<main>
+  <section id="s-join" class="panel center" aria-labelledby="t-join">
+    <h1 id="t-join">Hello!</h1>
+    <p>Type the code your helper gave you.</p>
+    <label for="code" class="muted">Your code</label>
+    <input id="code" class="code" maxlength="8" autocomplete="off" autocapitalize="characters" spellcheck="false" inputmode="text">
+    <button class="btn" id="go" type="button">Start</button>
+    <p class="sent" id="join-msg" role="status" aria-live="polite"></p>
+  </section>
+
+  <section id="s-wait" class="panel center" hidden aria-live="polite">
+    <h1>You are connected</h1>
+    <p>Please wait. Your helper will start soon.</p>
+  </section>
+
+  <section id="s-pause" class="panel center" hidden aria-live="polite">
+    <h1>Short break</h1>
+    <p>Stay here. We will carry on in a moment.</p>
+  </section>
+
+  <section id="s-end" class="panel center" hidden aria-live="polite">
+    <h1>All done. Thank you!</h1>
+    <p>You worked really hard. You can close this page now.</p>
+  </section>
+
+  <section id="s-run" hidden>
+        <button id="snd" type="button" class="opt" hidden style="margin:10px auto;max-width:360px">🔊 Tap to turn on sound</button>
+    <p id="snd-ok" class="muted" hidden>🔊 Sound is on. Listen carefully.</p>
+    <div id="v-word" class="panel" hidden><div class="word" id="word" aria-live="polite"></div></div>
+
+    <div id="v-mcq" class="panel" hidden>
+      <div class="passage" id="passage"></div>
+      <div class="q" id="mq"></div>
+      <div class="opts" id="opts" role="radiogroup" aria-labelledby="mq"></div>
+      <p class="sent" id="mcq-sent" role="status" aria-live="polite"></p>
+    </div>
+
+    <div id="v-num" class="panel" hidden>
+      <div class="q" id="nq"></div>
+      <div class="visual" id="nvis" aria-hidden="true"></div>
+      <div class="answerbox" id="abox" aria-live="polite" aria-label="Your answer"></div>
+      <div class="pad" id="pad"></div>
+      <div class="center"><button class="btn" id="send" type="button">Send answer</button></div>
+      <p class="sent center" id="num-sent" role="status" aria-live="polite"></p>
+    </div>
+
+    <div id="v-letters" class="panel center" hidden aria-live="polite">
+      <h2 id="lt-title"></h2>
+      <p class="bigp" id="lt-text"></p>
+      <div id="lt-grid" class="ltgrid" aria-label="Letters to read"></div>
+    </div>
+    <div id="v-spell" class="panel center" hidden aria-live="polite">
+      <h2 id="sp-title">Spelling</h2>
+      <p class="bigp" id="sp-text"></p>
+      <input id="sp-in" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Type the word" style="width:100%;max-width:420px;font-size:1.8rem;padding:12px;border:3px solid var(--edge);border-radius:14px;text-align:center">
+      <div><button id="sp-send" type="button" class="opt" style="margin:12px auto;max-width:260px;text-align:center">Send</button></div>
+      <p id="sp-sent" class="muted"></p>
+    </div>
+    <div id="v-read" class="panel" hidden aria-live="polite">
+      <h2 id="rd-title"></h2>
+      <p id="rd-text" style="font-size:clamp(1.3rem,3.6vw,1.9rem);line-height:1.9"></p>
+      <p id="rd-q" class="bigp" style="font-weight:800;margin-top:1em" hidden></p>
+    </div>
+    <div id="v-ran" class="panel center" hidden aria-live="polite">
+      <h2 id="ran-title"></h2>
+      <p class="bigp" id="ran-text"></p>
+      <div id="ran-grid" class="rangrid" aria-label="Items to name"></div>
+    </div>
+    <div id="v-listen" class="panel center" hidden aria-live="polite">
+
+      <div class="ear" aria-hidden="true">&#128066;</div>
+      <h1 id="l-title">Listen carefully</h1>
+      <p class="bigp" id="l-text"></p>
+    </div>
+
+    <div id="v-intro" class="panel center" hidden aria-live="polite">
+      <h1 id="i-title"></h1>
+      <p class="bigp" id="i-text"></p>
+      <p class="sent">Wait for your helper to start.</p>
+    </div>
+  </section>
+
+  <div class="tools" aria-label="Comfort settings">
+    <button type="button" id="t-smaller">Smaller text</button>
+    <button type="button" id="t-bigger">Bigger text</button>
+    <button type="button" id="t-tint">Change colour</button>
+    <button type="button" id="t-font">Change letters</button>
+  </div>
+</main>
+<div class="net" id="net" hidden role="status">Connection lost. Trying again&hellip;</div>
+<footer>POPS Assess&trade; &copy; 2026 Positive Outcomes Psychology Services Ltd (POPS UK). All rights reserved. This is an informal activity, not a standardised test.</footer>
+
+<script src="config.js"></script>
+<script>
+window.__popsLoaded = true;
+(() => {
+  const $ = id => document.getElementById(id);
+  const CFG = window.ASSESS_CFG || {};
+  let code = "", lastKey = "", seq = 0, picked = null, numStr = "", pollTimer = null, failing = 0;
+
+  async function rpc(name, body) {
+    const r = await fetch(CFG.url + "/rest/v1/rpc/" + name, {
+      method: "POST", headers: { apikey: CFG.key, "Content-Type": "application/json" }, body: JSON.stringify(body)
+    });
+    if (!r.ok) throw new Error("http " + r.status);
+    return r.json();
+  }
+
+  const screens = ["s-join", "s-wait", "s-pause", "s-end", "s-run"];
+  function show(id) { screens.forEach(s => $(s).hidden = s !== id); }
+  function showView(id) { ["v-word", "v-mcq", "v-num", "v-listen", "v-letters", "v-intro", "v-spell", "v-read", "v-ran"].forEach(v => $(v).hidden = v !== id); }
+
+  // ---- comfort settings (kept on this device only)
+  const prefs = (() => { try { return JSON.parse(localStorage.getItem("pops_assess_prefs") || "{}"); } catch { return {}; } })();
+  function applyPrefs() {
+    document.documentElement.style.setProperty("--scale", prefs.scale || 1);
+    document.body.dataset.tint = prefs.tint || "";
+    document.body.dataset.font = prefs.font || "";
+    try { localStorage.setItem("pops_assess_prefs", JSON.stringify(prefs)); } catch {}
+  }
+  const tints = ["", "cream", "blue", "green", "grey"];
+  $("t-smaller").onclick = () => { prefs.scale = Math.max(0.85, (prefs.scale || 1) - 0.1); applyPrefs(); };
+  $("t-bigger").onclick = () => { prefs.scale = Math.min(1.6, (prefs.scale || 1) + 0.1); applyPrefs(); };
+  $("t-tint").onclick = () => { prefs.tint = tints[(tints.indexOf(prefs.tint || "") + 1) % tints.length]; applyPrefs(); };
+  $("t-font").onclick = () => { prefs.font = prefs.font === "verdana" ? "" : "verdana"; applyPrefs(); };
+  applyPrefs();
+
+  // ---- number pad
+  const keys = ["7", "8", "9", "4", "5", "6", "1", "2", "3", "−", "0", "."];
+  keys.forEach(k => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "key"; b.textContent = k;
+    b.onclick = () => { if (numStr.length < 12) { numStr += k; drawNum(); } };
+    $("pad").append(b);
+  });
+  const back = document.createElement("button");
+  back.type = "button"; back.className = "key"; back.style.gridColumn = "1 / -1"; back.textContent = "⌫ Delete";
+  back.onclick = () => { numStr = numStr.slice(0, -1); drawNum(); };
+  $("pad").append(back);
+  function drawNum() { $("abox").textContent = numStr; $("num-sent").textContent = ""; $("send").disabled = !numStr; }
+
+  $("send").onclick = async () => {
+    if (!numStr) return;
+    $("send").disabled = true;
+    try {
+      const ok = await rpc("child_answer", { p_code: code, p_seq: seq, p_answer: numStr.replace(/−/g, "-") });
+      $("num-sent").textContent = ok ? "Sent. Wait for the next question. You can change your answer until then." : "That did not send. Please try again.";
+    } catch { $("num-sent").textContent = "That did not send. Please try again."; }
+    $("send").disabled = !numStr;
+  };
+
+  async function pick(i, btn) {
+    picked = i;
+    [...$("opts").children].forEach(c => c.setAttribute("aria-checked", c === btn ? "true" : "false"));
+    try {
+      const ok = await rpc("child_answer", { p_code: code, p_seq: seq, p_answer: String(i) });
+      $("mcq-sent").textContent = ok ? "Answer sent. Wait for the next question. You can change it until then." : "That did not send. Please tap again.";
+    } catch { $("mcq-sent").textContent = "That did not send. Please tap again."; }
+  }
+
+
+  // ---- reading voice (text-to-speech on this device; started by the assessor)
+  const TTS = "speechSynthesis" in window;
+  let soundOn = false, lastSay = null, sayTimers = [], voice = null, curSt = null;
+  const DIG = ["zero","one","two","three","four","five","six","seven","eight","nine"];
+  function pickVoice() {
+    if (!TTS) return null;
+    const vs = speechSynthesis.getVoices();
+    voice = vs.find(v => /en[-_]GB/i.test(v.lang)) || vs.find(v => /^en/i.test(v.lang)) || null;
+  }
+  if (TTS) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
+  function utter(t, rate) {
+    const u = new SpeechSynthesisUtterance(t); if (voice) u.voice = voice; u.lang = voice ? voice.lang : "en-GB"; u.rate = rate || 0.9; return u;
+  }
+  function stopSay() { sayTimers.forEach(clearTimeout); sayTimers = []; if (TTS) speechSynthesis.cancel(); }
+  function playSeq(items, gap) {
+    stopSay();
+    items.forEach((x, i) => sayTimers.push(setTimeout(() => { const t = /^\d$/.test(String(x)) ? DIG[Number(x)] : String(x); speechSynthesis.speak(utter(t, 0.8)); }, 400 + i * gap)));
+  }
+  function playText(text, rate) {
+    stopSay();
+    (String(text).match(/[^.!?]+[.!?]*/g) || [text]).map(x => x.trim()).filter(Boolean).forEach(x => speechSynthesis.speak(utter(x, rate)));
+  }
+  async function soundReady() {
+    soundOn = true; $("snd").hidden = true; $("snd-ok").hidden = false;
+    try { await rpc("child_answer", { p_code: code, p_seq: seq, p_answer: "__sound_on" }); } catch {}
+  }
+  $("snd").onclick = () => { if (TTS) { speechSynthesis.speak(utter(" ", 1)); } soundReady(); };
+  function audioView(st) {
+    const audio = !!st.audio && TTS;
+    $("snd").hidden = !audio || soundOn; $("snd-ok").hidden = !(audio && soundOn);
+    if (audio && soundOn) soundReady();
+    if (st.audio && !TTS) { try { rpc("child_answer", { p_code: code, p_seq: seq, p_answer: "__no_sound" }); } catch {} }
+  }
+  function handleSay(st) {
+    const c = st && st.say;
+    if (!c) { if (lastSay === null) lastSay = 0; return; }
+    if (lastSay === null) { lastSay = c.n; return; }          // joined part-way: never replay old commands
+    if (c.n === lastSay) return;
+    lastSay = c.n;
+    if (!soundOn || !TTS) return;
+    if (c.kind === "stop") stopSay();
+    else if (c.kind === "seq") playSeq(c.items || [], c.gap || 1000);
+    else if (c.kind === "text") playText(c.text || "", c.rate);
+  }
+
+
+  $("sp-send").onclick = async () => {
+    const v = $("sp-in").value.trim(); if (!v) return;
+    try { const ok = await rpc("child_answer", { p_code: code, p_seq: seq, p_answer: v }); $("sp-sent").textContent = ok ? "Sent. Wait for the next word. You can change it until then." : "That did not send. Please try again."; }
+    catch { $("sp-sent").textContent = "That did not send. Please try again."; }
+  };
+  $("sp-in").addEventListener("keydown", e => { if (e.key === "Enter") $("sp-send").click(); });
+
+  function renderStimulus(view) {
+    const st = view.stimulus || {};
+    const key = view.seq + ":" + (st.type || "");
+    if (key === lastKey) return;
+    lastKey = key; seq = view.seq; picked = null; numStr = ""; stopSay(); $("snd").hidden = true; $("snd-ok").hidden = true;
+    show("s-run");
+    if (st.type === "word") {
+      showView("v-word"); $("word").textContent = st.text || "";
+    } else if (st.type === "mcq") {
+      showView("v-mcq"); $("passage").textContent = st.passage || ""; $("passage").hidden = !st.passage;
+      $("mq").textContent = st.q || ""; $("mcq-sent").textContent = "";
+      $("opts").replaceChildren();
+      (st.options || []).forEach((o, i) => {
+        const b = document.createElement("button");
+        b.type = "button"; b.className = "opt"; b.setAttribute("role", "radio"); b.setAttribute("aria-checked", "false"); b.textContent = o;
+        b.onclick = () => pick(i, b);
+        $("opts").append(b);
+      });
+    } else if (st.type === "num") {
+      showView("v-num"); $("nq").textContent = st.q || ""; $("nvis").textContent = st.visual || ""; $("nvis").hidden = !st.visual; drawNum();
+    } else if (st.type === "listen") {
+      showView("v-listen"); $("l-title").textContent = st.title || "Listen carefully"; $("l-text").textContent = st.text || ""; audioView(st);
+    } else if (st.type === "spell") {
+      showView("v-spell"); $("sp-title").textContent = st.title || "Spelling"; $("sp-text").textContent = st.text || ""; $("sp-in").value = ""; $("sp-sent").textContent = ""; audioView(st);
+    } else if (st.type === "passage") {
+      showView("v-read"); $("rd-title").textContent = st.title || ""; $("rd-text").textContent = st.text || ""; $("rd-q").textContent = st.q || ""; $("rd-q").hidden = !st.q;
+    } else if (st.type === "ran") {
+      showView("v-ran"); $("ran-title").textContent = st.title || ""; $("ran-text").textContent = st.text || "";
+      const cols = st.phase === "go" ? (st.cols || 10) : (st.symbols || []).length, cells = st.phase === "go" ? (st.grid || []).map(i => st.symbols[i]) : (st.symbols || []);
+      const g = $("ran-grid"); g.style.gridTemplateColumns = `repeat(${cols},1fr)`; g.classList.toggle("ran-go", st.phase === "go");
+      g.replaceChildren(...cells.map(c => { const d = document.createElement("div"); d.className = "rc"; if (st.cond === "colours") { d.classList.add("dot"); d.style.background = c; } else d.textContent = c; return d; }));
+    } else if (st.type === "letters") {
+      showView("v-letters"); $("lt-title").textContent = st.title || ""; $("lt-text").textContent = st.text || "";
+      $("lt-grid").replaceChildren(...(st.letters || []).map(c => { const d = document.createElement("div"); d.className = "lt"; d.textContent = c; return d; }));
+    } else if (st.type === "intro") {
+      showView("v-intro"); $("i-title").textContent = st.title || ""; $("i-text").textContent = st.text || "";
+    } else {
+      show("s-wait");
+    }
+    window.scrollTo(0, 0);
+  }
+
+  function render(view) {
+    if (!view) { $("join-msg").textContent = "That code was not found. Check it and try again."; show("s-join"); stopPoll(); return false; }
+    if (view.status === "ended") { show("s-end"); stopPoll(); return true; }
+    if (view.status === "paused") { stopSay(); lastKey = ""; show("s-pause"); return true; }
+    if (view.status === "waiting" || !view.stimulus) { lastKey = ""; show("s-wait"); return true; }
+    renderStimulus(view);
+    handleSay(view.stimulus);
+    return true;
+  }
+
+  async function tick() {
+    try {
+      const view = await rpc("child_view", { p_code: code });
+      failing = 0; $("net").hidden = true;
+      render(view);
+    } catch { if (++failing >= 3) $("net").hidden = false; }
+  }
+  function startPoll() { stopPoll(); tick(); pollTimer = setInterval(tick, 700); }
+  function stopPoll() { clearInterval(pollTimer); pollTimer = null; }
+
+  async function join() {
+    code = $("code").value.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+    if (code.length < 4) { $("join-msg").textContent = "Please type your code."; return; }
+    $("join-msg").textContent = "Checking…";
+    try {
+      const view = await rpc("child_view", { p_code: code });
+      if (!render(view)) return;
+      history.replaceState(null, "", "?c=" + code);
+      startPoll();
+    } catch { $("join-msg").textContent = "Could not connect. Check the internet and try again."; }
+  }
+  $("go").onclick = join;
+  $("code").addEventListener("keydown", e => { if (e.key === "Enter") join(); });
+  const q = new URLSearchParams(location.search).get("c");
+  if (q) { $("code").value = q; join(); }
+})();
+</script>
+</body>
+</html>
