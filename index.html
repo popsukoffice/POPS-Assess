@@ -18,7 +18,7 @@
   header { display:flex; align-items:center; gap:14px; padding:10px 16px; background:#fff; border-bottom:3px solid var(--brand); }
   header img { height:54px; width:auto; }
   header strong { font-size:1.05rem; }
-  main { flex:1; width:100%; max-width:900px; margin:0 auto; padding:18px 16px 30px; }
+  main { flex:1; width:100%; max-width:900px; transition:none; margin:0 auto; padding:18px 16px 30px; }
   .panel { background:var(--card); border:3px solid var(--edge); border-radius:22px; padding:clamp(16px,4vw,30px); }
   h1 { font-size:clamp(1.4rem,5vw,2rem); margin:0 0 .5em; }
   p { margin:.4em 0; }
@@ -48,12 +48,21 @@
   footer { text-align:center; color:var(--muted); font-size:.8rem; padding:10px; }
   .ltgrid { display:grid; grid-template-columns:repeat(7,1fr); gap:8px; max-width:760px; margin:.4em auto 0; }
   .ltgrid .lt { font-family:"Andika","Lexend","Comic Sans MS","Chalkboard SE","Century Gothic",Arial,sans-serif; font-size:clamp(1.9rem,7vmin,3.6rem); font-weight:600; line-height:1.1; padding:.05em 0; background:#fff; border:2px solid #c9d6e2; border-radius:14px; text-align:center; user-select:none; }
-  .rangrid { display:grid; gap:6px; max-width:900px; margin:.4em auto 0; }
-  .rangrid .rc { font-family:"Andika","Lexend","Comic Sans MS",Arial,sans-serif; font-size:clamp(1.6rem,5.5vmin,3rem); font-weight:600; text-align:center; line-height:1.3; }
-  .rangrid .rc.dot { width:clamp(26px,5.5vmin,48px); height:clamp(26px,5.5vmin,48px); border-radius:50%; margin:6px auto; }
+  .rangrid { display:grid; gap:6px; max-width:1250px; margin:.4em auto 0; }
+  .rangrid .rc { font-family:"Andika","Lexend","Comic Sans MS",Arial,sans-serif; font-size:clamp(2.2rem,min(7.2vw,8vh),5.2rem); font-weight:700; text-align:center; line-height:1.2; }
+  .rangrid.ran-go { row-gap:clamp(18px,4.5vh,50px); column-gap:clamp(4px,1vw,16px); }
+  .rangrid .rc.dot { width:clamp(36px,min(6.4vw,7vh),84px); height:clamp(36px,min(6.4vw,7vh),84px); border-radius:50%; margin:8px auto; }
   .rangrid:not(.ran-go) .rc { font-size:clamp(2.4rem,9vmin,4.5rem); } .rangrid:not(.ran-go) .rc.dot { width:clamp(44px,10vmin,80px); height:clamp(44px,10vmin,80px); }
   @media (max-width:520px) { .ltgrid { grid-template-columns:repeat(5,1fr); } }
   #v-letters h2 { margin:.1em 0; } #lt-text { font-size:1.05rem; margin:.2em 0; }
+  .dstage { display:flex; align-items:center; justify-content:center; min-height:min(62vh,440px); }
+  .dstage svg { width:min(70vw,58vh,440px); height:auto; background:#fff; border:3px solid var(--edge); border-radius:18px; }
+  .dfix { font-size:5rem; font-weight:300; color:var(--muted); }
+  .dwrap { display:grid; grid-template-columns:1fr 1fr; gap:16px; max-width:900px; margin:10px auto; }
+  .dbox { border:3px solid var(--edge); border-radius:20px; background:#fff; color:var(--ink); min-height:min(46vh,380px); display:flex; align-items:center; justify-content:center; padding:6px; font:inherit; font-size:2rem; font-weight:900; cursor:pointer; }
+  .dbox svg { width:100%; max-width:380px; height:auto; }
+  .dbox[aria-checked="true"] { border-color:var(--brand); background:#d9f1ec; box-shadow:inset 0 0 0 3px var(--brand); }
+  .dbox[disabled] { cursor:default; }
   .ear { font-size: 5rem; line-height: 1; margin: .2em 0; }
   .bigp { font-size: calc(1.35rem * var(--scale, 1)); margin: .4em 0; }
 </style>
@@ -135,6 +144,18 @@
       <p class="bigp" id="ran-text"></p>
       <div id="ran-grid" class="rangrid" aria-label="Items to name"></div>
     </div>
+    <div id="v-dots" class="panel center" hidden aria-live="polite">
+      <div class="bigp" id="dt-msg"></div>
+      <div class="dstage" id="dt-stage" aria-label="Dots"></div>
+    </div>
+    <div id="v-cmp" class="panel center" hidden aria-live="polite">
+      <div class="q" id="cmp-q"></div>
+      <div class="dwrap" role="radiogroup" aria-labelledby="cmp-q">
+        <button type="button" class="dbox" id="cmp-l" role="radio" aria-checked="false" aria-label="Left side"></button>
+        <button type="button" class="dbox" id="cmp-r" role="radio" aria-checked="false" aria-label="Right side"></button>
+      </div>
+      <p class="sent" id="cmp-sent" role="status" aria-live="polite"></p>
+    </div>
     <div id="v-listen" class="panel center" hidden aria-live="polite">
 
       <div class="ear" aria-hidden="true">&#128066;</div>
@@ -160,6 +181,7 @@
 <footer>POPS Assess&trade; &copy; 2026 Positive Outcomes Psychology Services Ltd (POPS UK). All rights reserved. This is an informal activity, not a standardised test.</footer>
 
 <script src="config.js"></script>
+<script src="numerosity.js"></script>
 <script>
 window.__popsLoaded = true;
 setInterval(function(){ try { if (window.speechSynthesis && !speechSynthesis.speaking) { var u = new SpeechSynthesisUtterance("."); u.volume = 0; speechSynthesis.speak(u); } } catch (e) {} }, 20000);
@@ -178,7 +200,7 @@ setInterval(function(){ try { if (window.speechSynthesis && !speechSynthesis.spe
 
   const screens = ["s-join", "s-wait", "s-pause", "s-end", "s-run"];
   function show(id) { screens.forEach(s => $(s).hidden = s !== id); }
-  function showView(id) { ["v-word", "v-mcq", "v-num", "v-listen", "v-letters", "v-intro", "v-spell", "v-read", "v-ran"].forEach(v => $(v).hidden = v !== id); }
+  function showView(id) { if (id !== "v-ran") document.querySelector("main").style.maxWidth = ""; ["v-word", "v-mcq", "v-num", "v-listen", "v-letters", "v-intro", "v-spell", "v-read", "v-ran", "v-dots", "v-cmp"].forEach(v => $(v).hidden = v !== id); }
 
   // ---- comfort settings (kept on this device only)
   const prefs = (() => { try { return JSON.parse(localStorage.getItem("pops_assess_prefs") || "{}"); } catch { return {}; } })();
@@ -285,11 +307,52 @@ setInterval(function(){ try { if (window.speechSynthesis && !speechSynthesis.spe
   };
   $("sp-in").addEventListener("keydown", e => { if (e.key === "Enter") $("sp-send").click(); });
 
+  // ---- numerosity: dots are shown for a fixed short time on this device, then hidden
+  let dotT = [], flashed = {};
+  const clearDots = () => { dotT.forEach(clearTimeout); dotT = []; };
+  function afterPaint(fn) { requestAnimationFrame(() => requestAnimationFrame(fn)); }
+  function showDots(st, sq) {
+    showView("v-dots");
+    const stage = $("dt-stage"), msg = $("dt-msg"), toAnswer = () => {
+      stage.replaceChildren(); showView("v-num");
+      $("nq").textContent = "How many dots did you see?"; $("nvis").textContent = ""; $("nvis").hidden = true; drawNum();
+    };
+    if (flashed[sq]) { toAnswer(); return; }
+    msg.textContent = "Look at the middle of the screen"; stage.innerHTML = '<div class="dfix" aria-hidden="true">+</div>';
+    dotT.push(setTimeout(() => {
+      let d; try { d = POPSNUM.layout(st); } catch (e) { toAnswer(); return; }
+      stage.innerHTML = POPSNUM.svg(d, 440); msg.textContent = "";
+      afterPaint(() => { flashed[sq] = true; dotT.push(setTimeout(toAnswer, st.ms || 1000)); });
+    }, 900));
+  }
+  function showCmp(st, sq) {
+    showView("v-cmp"); const L = $("cmp-l"), R = $("cmp-r"), q = $("cmp-q");
+    [L, R].forEach(b => { b.setAttribute("aria-checked", "false"); b.disabled = true; b.replaceChildren(); });
+    $("cmp-sent").textContent = "";
+    const toAnswer = () => {
+      q.textContent = "Which side had more dots? Tap it.";
+      L.textContent = "LEFT"; R.textContent = "RIGHT"; L.disabled = R.disabled = false;
+    };
+    if (flashed[sq]) { toAnswer(); return; }
+    q.textContent = "Look at the middle of the screen"; L.innerHTML = '<span class="dfix" aria-hidden="true">+</span>'; R.textContent = "";
+    dotT.push(setTimeout(() => {
+      let c; try { c = POPSNUM.cmpLayout(st); } catch (e) { toAnswer(); return; }
+      L.innerHTML = POPSNUM.svg(c.left, 380); R.innerHTML = POPSNUM.svg(c.right, 380); q.textContent = "";
+      afterPaint(() => { flashed[sq] = true; dotT.push(setTimeout(toAnswer, st.ms || 1500)); });
+    }, 900));
+  }
+  async function pickCmp(i) {
+    [$("cmp-l"), $("cmp-r")].forEach((b, k) => b.setAttribute("aria-checked", k === i ? "true" : "false"));
+    try { const ok = await rpc("child_answer", { p_code: code, p_seq: seq, p_answer: String(i) }); $("cmp-sent").textContent = ok ? "Answer sent. Wait for the next one. You can change it until then." : "That did not send. Please tap again."; }
+    catch { $("cmp-sent").textContent = "That did not send. Please tap again."; }
+  }
+  $("cmp-l").onclick = () => pickCmp(0); $("cmp-r").onclick = () => pickCmp(1);
+
   function renderStimulus(view) {
     const st = view.stimulus || {};
     const key = view.seq + ":" + (st.type || "");
     if (key === lastKey) return;
-    lastKey = key; seq = view.seq; picked = null; numStr = ""; stopSay(); $("snd").hidden = true; $("snd-ok").hidden = true;
+    lastKey = key; seq = view.seq; picked = null; numStr = ""; stopSay(); clearDots(); $("snd").hidden = true; $("snd-ok").hidden = true;
     show("s-run");
     if (st.type === "word") {
       showView("v-word"); $("word").textContent = st.text || "";
@@ -303,6 +366,10 @@ setInterval(function(){ try { if (window.speechSynthesis && !speechSynthesis.spe
         b.onclick = () => pick(i, b);
         $("opts").append(b);
       });
+    } else if (st.type === "dots") {
+      showDots(st, view.seq);
+    } else if (st.type === "cmp") {
+      showCmp(st, view.seq);
     } else if (st.type === "num") {
       showView("v-num"); $("nq").textContent = st.q || ""; $("nvis").textContent = st.visual || ""; $("nvis").hidden = !st.visual; drawNum();
     } else if (st.type === "listen") {
@@ -312,7 +379,7 @@ setInterval(function(){ try { if (window.speechSynthesis && !speechSynthesis.spe
     } else if (st.type === "passage") {
       showView("v-read"); $("rd-title").textContent = st.title || ""; $("rd-text").textContent = st.text || ""; $("rd-q").textContent = st.q || ""; $("rd-q").hidden = !st.q;
     } else if (st.type === "ran") {
-      showView("v-ran"); $("ran-title").textContent = st.title || ""; $("ran-text").textContent = st.text || "";
+      showView("v-ran"); document.querySelector("main").style.maxWidth = "1300px"; $("ran-title").textContent = st.title || ""; $("ran-text").textContent = st.text || "";
       const cols = st.phase === "go" ? (st.cols || 10) : (st.symbols || []).length, cells = st.phase === "go" ? (st.grid || []).map(i => st.symbols[i]) : (st.symbols || []);
       const g = $("ran-grid"); g.style.gridTemplateColumns = `repeat(${cols},1fr)`; g.classList.toggle("ran-go", st.phase === "go");
       g.replaceChildren(...cells.map(c => { const d = document.createElement("div"); d.className = "rc"; if (st.cond === "colours") { d.classList.add("dot"); d.style.background = c; } else d.textContent = c; return d; }));
@@ -330,7 +397,7 @@ setInterval(function(){ try { if (window.speechSynthesis && !speechSynthesis.spe
   function render(view) {
     if (!view) { $("join-msg").textContent = "That code was not found. Check it and try again."; show("s-join"); stopPoll(); return false; }
     if (view.status === "ended") { show("s-end"); stopPoll(); return true; }
-    if (view.status === "paused") { stopSay(); lastKey = ""; show("s-pause"); return true; }
+    if (view.status === "paused") { stopSay(); clearDots(); lastKey = ""; show("s-pause"); return true; }
     if (view.status === "waiting" || !view.stimulus) { lastKey = ""; show("s-wait"); return true; }
     renderStimulus(view);
     handleSay(view.stimulus);

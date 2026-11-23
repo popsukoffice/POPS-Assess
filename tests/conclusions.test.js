@@ -12,3 +12,10 @@ const S={
 for(const [k,p] of Object.entries(S)){const r=C.build(p);const n=Object.values(r.support).flat().length;console.log(`${k}: phase ${r.phaseName}; ${r.strengths.length} strengths, ${r.difficulties.length} difficulties, ${r.conclusions.length} conclusions, ${r.implications.length} implications, ${n} support points, flags ${r.flags.length}`);
  [...r.strengths,...r.difficulties,...r.conclusions,...r.implications,...Object.values(r.support).flat()].forEach(t=>{if(/undefined|NaN|\bnull\b/.test(t)||/  /.test(t))console.log('  BAD:',t)});}
 if(process.argv[2]){const r=C.build(S[process.argv[2]]);for(const [k,v] of Object.entries(r))console.log('##',k,JSON.stringify(v,null,1))}
+// numerosity cases
+{const base={name:'Kit',yearNum:4,ageYears:8.8};
+const cases={numWeakMathsWeak:{...base,d:{maths:g(1),numer:{sub:{small:{n:8,c:4},four:{n:2,c:1},large:{n:8,c:0},n:18},cmp:{n:24,pct:52,easy:{n:8,c:4},hard:{n:8,c:4},cong:{n:12,c:8},incong:{n:12,c:5},w:null}}}},
+ numFineMathsWeak:{...base,d:{maths:g(1),numer:{cmp:{n:24,pct:88,easy:{n:8,c:8},hard:{n:8,c:6},cong:{n:12,c:11},incong:{n:12,c:10},w:0.25}}}},
+ sizeCue:{...base,d:{maths:g(4),numer:{cmp:{n:24,pct:70,easy:{n:8,c:7},hard:{n:8,c:4},cong:{n:12,c:11},incong:{n:12,c:6},w:0.4}}}}};
+for(const[k,p]of Object.entries(cases)){const r=C.build(p);const all=[...r.strengths,...r.difficulties,...r.conclusions,...r.implications,...Object.values(r.support).flat()];
+ console.log(k,'->',r.conclusions.filter(t=>/number-sense|quantity|space/.test(t)).length,'numer conclusions');all.forEach(t=>{if(/undefined|NaN|\bnull\b/.test(t)||/  /.test(t))console.log('  BAD:',t)})}}

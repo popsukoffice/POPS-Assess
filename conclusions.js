@@ -101,6 +101,38 @@
     if (lowF === false && (lowB === false || lowB == null)) strengths.push(`Short-term and working memory for digits was in the typical range for ${P} age (approximate guide only).`);
     const memLow = lowF === true || lowB === true || lowW === true;
 
+    // ---------- reading numbers ----------
+    const ni = d.numid; let niLow = false, niRev = 0, niTeen = 0;
+    if (ni && ni.p1 && ni.p2) {
+      niRev = ni.rev || 0; niTeen = ni.teenty || 0;
+      const e1 = ni.p1.n - ni.p1.c, e2 = ni.p2.n - ni.p2.c; niLow = e1 > 0 || e2 >= 3;
+      if (e1 === 0 && e2 === 0) strengths.push(`${cap(N)} read every number from 0 to 10 and every number from 11 to 100 correctly.`);
+      else if (e1 === 0) strengths.push(`${cap(N)} read all of the numbers from 0 to 10 correctly.`);
+      if (e1 > 0) diffs.push(`${cap(N)} did not read all of the numbers from 0 to 10 correctly (${ni.p1.c} of ${ni.p1.n}), so number symbols are not yet secure.`);
+      if (e2 > 0) diffs.push(`Reading two- and three-digit numbers was inconsistent (${ni.p2.c} of ${ni.p2.n} correct for numbers between 11 and 100).`);
+    }
+
+    // ---------- numerosity (informal; no norms, so cautious and relative) ----------
+    const nm = d.numer || {}, nsub = nm.sub, ncmp = nm.cmp;
+    const frac = o => o && o.n ? o.c / o.n : null;
+    let numLow = false, numFine = false, subLow = false, sizeCue = false;
+    if (nsub && nsub.n >= 12) {
+      const fs = frac(nsub.small), fl = frac(nsub.large);
+      subLow = fs != null && fs < 0.7;
+      if (subLow) diffs.push(`Naming very small quantities (1 to 3 dots) at a glance was inconsistent (${nsub.small.c} of ${nsub.small.n} correct). This is an informal activity with no norms, so it is a prompt for further exploration only.`);
+      else if (fs != null && fs >= 0.9) strengths.push(`${cap(N)} named small quantities (1 to 3 dots) accurately at a glance (${nsub.small.c} of ${nsub.small.n}).`);
+      if (!subLow && fs != null && fl != null && fs >= 0.85 && fl < 0.4) diffs.push(`Larger sets of dots (5 to 9) were rarely named exactly (${nsub.large.c} of ${nsub.large.n}); this is common when there is no time to count, so the pattern of errors matters more than the score.`);
+    }
+    if (ncmp && ncmp.n >= 16) {
+      const fe = frac(ncmp.easy), fh = frac(ncmp.hard);
+      numLow = ncmp.pct < 60 || (fe != null && fe < 0.7);
+      numFine = ncmp.pct >= 75 && (fe == null || fe >= 0.85);
+      const fc = frac(ncmp.cong), fi = frac(ncmp.incong);
+      sizeCue = fc != null && fi != null && ncmp.cong.n >= 6 && ncmp.incong.n >= 6 && fc - fi >= 0.3;
+      if (numLow) diffs.push(`Judging which of two groups of dots had more, without counting, was difficult (${ncmp.pct}% correct, where guessing gives about 50%), including when the numbers were very different (${ncmp.easy.c} of ${ncmp.easy.n}). This was an informal activity with no norms.`);
+      else if (numFine) strengths.push(`${cap(N)} compared quantities of dots well without counting (${ncmp.pct}% correct overall).`);
+    }
+
     // ---------- conclusions (hypothesis-led) ----------
     const wordLevel = ["word", "nonword", "spell"].filter(k => weak(C[k])), litWeak = wordLevel.length;
     const decodeWeak = weak(C.nonword) || (weak(C.word) && weak(C.spell));
@@ -142,6 +174,19 @@
       else if (weak(m) && anyLit) concl.push(`Mathematics was below expectations alongside weaker literacy. Reading demands, language of mathematics and memory for number facts may all be contributing, so the two areas should be considered together.`);
       else if (okay(m) && anyLit) concl.push(`Mathematics was a relative strength compared with literacy, which suggests that difficulties are focused on reading and writing and not on mathematical reasoning in general.`);
     }
+    if (ni && ni.p1 && (niRev || niTeen)) {
+      const older = p.ageYears != null && p.ageYears >= 8;
+      if (niRev) concl.push(`${cap(N)} reversed the digits of ${niRev} number${niRev > 1 ? "s" : ""} (for example reading 14 as 41). ${older ? "Reversals are common in the early years but are less expected by this age, so" : "Reversals are common while children are learning number symbols, so"} this is best treated as a prompt to check how securely ${N} understands place value (tens and units), not as a sign of a specific difficulty on its own. In English, teen numbers are said units-first but written tens-first, which makes them particularly easy to reverse.`);
+      if (niTeen) concl.push(`${cap(N)} confused teen numbers with tens numbers (for example 16 and sixty). This suggests that the spoken forms of -teen and -ty numbers are not yet secure, which affects place value and counting.`);
+    } else if (ni && ni.p1 && niLow) concl.push(`Errors in reading numbers were not reversals. They suggest that knowledge of number names and symbols is incomplete, which is worth securing before building on arithmetic.`);
+    if (nsub || ncmp) {
+      const m = C.maths, mWeak = weak(m);
+      if ((numLow || subLow) && mWeak) concl.push(`The informal number-sense activities (seeing and comparing quantities without counting) were weaker, and arithmetic was also below expectations. Research suggests that, on average, children with persistent mathematics difficulties find such tasks harder, so this may point to weak early number foundations. Individual scores on these tasks are not reliable enough to identify a specific learning difficulty, so this is a reason to look closely at number understanding, not a diagnosis.`);
+      else if ((numLow || subLow) && !mWeak && m) concl.push(`The informal number-sense activities were weaker even though arithmetic was not below expectations. These activities are not very reliable for individual children, so this is best treated as a prompt to observe how ${N} approaches quantity and number, and to repeat the activities in better conditions before drawing conclusions.`);
+      else if (numFine && mWeak) concl.push(`Number sense without counting (comparing quantities) was a relative strength while arithmetic was below expectations. This suggests that the difficulty is more likely to lie in number words, symbols, facts and procedures, or in memory and language demands, than in a basic sense of quantity.`);
+      else if (numFine && !numLow) concl.push(`Judging and comparing quantities without counting was secure on these informal activities.`);
+      if (sizeCue) concl.push(`Accuracy dropped when the larger group of dots covered less space, so ${N} may have judged by how much space the dots filled rather than by how many there were. Teaching that links quantity explicitly to number (counting, grouping and matching) may help.`);
+    }
     if (memLow) concl.push(`Memory span was at the lower end for ${P} age on at least one task. A difficulty holding information in mind can affect following instructions, learning facts and writing, and is worth considering in how tasks are set (see the suggestions).`);
     if (weakAll.length >= 4 && attemptedGraded.length >= 5) concl.push(`${cap(P)} attainment was below expectations across most areas assessed. This broad pattern goes beyond a specific literacy or mathematics difficulty, so a wider assessment of learning (including cognitive skills, language and attention) should be considered.`);
     if (attemptedGraded.length >= 3 && weakAll.length === 0 && !diffs.length) concl.push(`${cap(N)} performed in line with, or above, expectations on every activity given. No significant difficulty was identified on these activities. If staff or family still have concerns, it is worth looking at other factors such as attention, anxiety, confidence, or skills that were not assessed here.`);
@@ -154,6 +199,8 @@
     }
     if (weak(C.comp) || (C.listen && weak(C.listen))) impl.push(`${cap(N)} may need vocabulary, background and the structure of a text explained before reading, and may not pick up the meaning of what is read or said without prompting.`);
     if (memLow) impl.push(`${cap(N)} may lose multi-step spoken instructions, may lose track of what to write while thinking about how to write it, and may need information to be available in a form that can be looked back at.`);
+    if ((numLow || subLow) && !weak(C.maths)) impl.push(`${cap(N)} may need extra concrete experience of quantity (for example comparing, grouping and arranging objects) when new number ideas are introduced.`);
+    if (niRev || niTeen || niLow) impl.push(`${cap(N)} may misread numbers in questions and on the board, so answers that look wrong may come from misreading the number and not from the calculation.`);
     if (weak(C.maths)) impl.push(`In mathematics ${N} is likely to find new work harder to build on without secure foundations, and to need more practice and concrete or visual support to retain facts and methods.`);
     if (litWeak || weak(C.maths) || weak(C.comp)) impl.push(`Children who find core skills hard can lose confidence and avoid tasks (for example reading aloud, writing, or calculation in front of others). ${cap(N)}'s views and sense of success should be monitored alongside attainment.`);
     if (okay(C.listen) && (weak(C.word) || weak(C.spell) || weak(C.comp)) && !(C.listen && weak(C.listen))) impl.push(`Because ${P} spoken language understanding is stronger than literacy, ${N} is likely to learn well through discussion, listening and visual or practical approaches, and attainment in writing may under-represent ${P} knowledge.`);
@@ -192,6 +239,8 @@
       supTgt.push(prim ? `Provide short, frequent sessions (10 to 15 minutes, several times a week) to secure the early number foundations ${N} is missing: counting, place value, number bonds and the meaning of the operations, using concrete materials, then pictorial representations, then written methods. Add regular retrieval practice for number facts.` : `Revisit the maths foundations ${N} is missing using concrete and visual models where helpful, with short frequent practice on number facts, and teach step-by-step methods with worked examples. Make sure ${N} has a fact sheet or calculator for tasks where recall is not the aim.`);
       supUni.push(`Check that ${N} understands the mathematical vocabulary and the language of word problems, and teach how to break a problem into steps.`);
     }
+    if (numLow || subLow || (weak(C.maths) && (nsub || ncmp))) supTgt.push(`Build secure number sense with short, frequent practical activities: subitising and dot-pattern cards (dice, ten frames), comparing and ordering quantities, and linking each quantity to its number word and numeral before moving to written calculation.`);
+    if (niRev || niTeen || niLow) supTgt.push(`Teach number reading explicitly with place-value equipment (tens frames, base ten, place-value cards): build a number such as 14 as one ten and four ones, say it, write it and check it. Practise teen and tens pairs (13/30, 16/60) and reversible numbers (14/41, 27/72) side by side, a few minutes at a time.`);
     if (litWeak || weak(C.comp)) supUni.push(`Make sure ${N} is not asked to read aloud or spell in front of others without preparation, and provide alternatives to written recording (for example scribing, speech-to-text, mind maps, oral answers) where the learning goal is not writing itself.`);
     if (okay(C.listen) && (litWeak || weak(C.comp))) supUni.push(`Use ${P} strength in listening and discussion: provide audio versions of texts, discussion before writing, and opportunities to show understanding orally.`);
     if (ph === "uks2") supUni.push(`Plan the transition to secondary school: share this profile, the strategies that work, and any assistive technology so that support continues in Year 7.`);
@@ -205,7 +254,7 @@
     if (litWeak || weak(C.comp)) further.push("literacy (single-word reading, nonword reading, spelling and reading comprehension)");
     if (paWeak.length || (litWeak && decodeWeak)) further.push("phonological processing (including rapid automatised naming)");
     if (memLow) further.push("working memory");
-    if (weak(C.maths)) further.push("mathematics (number fluency, calculation, reasoning)");
+    if (weak(C.maths) || numLow || subLow || niLow || niRev) further.push("mathematics (number sense, number fluency, calculation, reasoning)");
     if (C.listen && weak(C.listen)) further.push("oral language (vocabulary and sentence structure)");
     if (further.length) supMon.push(`If the school or family wishes to explore the nature of the difficulties further, standardised assessment of ${list(further)} would add reliable, norm-referenced information to these informal results.`);
     if (p.eal) supMon.push(`Because English is an additional language, where possible gather information about ${P} skills in the home language, and interpret English literacy results alongside the length and quality of ${P} exposure to English.`);

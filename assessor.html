@@ -68,6 +68,7 @@
   details summary { cursor:pointer; font-weight:700; }
   .toolbar { display:flex; gap:10px; flex-wrap:wrap; margin:10px 0; }
   #report { border:2px solid var(--line); border-radius:12px; padding:18px; background:#fff; }
+  dialog.saiddlg { border:2px solid #1d3557; border-radius:12px; padding:16px 18px; max-width:min(92vw,420px); } dialog.saiddlg::backdrop { background:rgba(0,0,0,.45); }
   .letgrid { display:grid; grid-template-columns:repeat(auto-fit,minmax(64px,1fr)); gap:8px; margin:8px 0; }
   .letgrid button { min-height:64px; font-size:1.8rem; font-weight:800; padding:2px; }
   .letgrid button.wrong { background:#fde8e6; border-color:#b3261e; color:#b3261e; text-decoration:line-through; }
@@ -276,6 +277,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
 <script src="lib.js"></script>
+<script src="numerosity.js"></script>
 <script src="conclusions.js"></script>
 <script src="reportexport.js"></script>
 <script>
@@ -298,12 +300,13 @@ function h(tag, attrs, ...kids) {
   kids.flat().forEach(c => c != null && e.append(c.nodeType ? c : document.createTextNode(String(c))));
   return e;
 }
+function htmlDiv(markup, style) { const d = document.createElement("div"); d.style.cssText = style || ""; d.setAttribute("aria-hidden", "true"); d.innerHTML = markup; return d; }
 const E = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
 /* ---------------- constants ---------------- */
 const THR = { word: 0.8, nonword: 0.75, spell: 0.75, comp: 0.75, comp_open: 0.75, maths: 0.8, listen: 0.75 };            // accuracy needed for a level to count as secure
 const GRADED = ["word", "nonword", "spell", "comp", "listen", "maths"], SPANS = ["dsf", "dsb", "wsf"];
-const DEFAULT_ORDER = ["alpha", "word", "nonword", "spell", "fluency", "pa_blend", "pa_seg", "pa_elis", "pa_iso", "dsf", "dsb", "comp", "comp_open", "listen", "wsf", "ran", "maths"];
+const DEFAULT_ORDER = ["alpha", "word", "nonword", "spell", "fluency", "pa_blend", "pa_seg", "pa_elis", "pa_iso", "dsf", "dsb", "comp", "comp_open", "listen", "wsf", "ran", "numid", "maths", "numer_sub", "numer_cmp"];
 const PAS = ["pa_blend", "pa_seg", "pa_elis", "pa_iso"];
 const YEARS = [["Not recorded", ""], ["Reception", 0], ["Year 1", 1], ["Year 2", 2], ["Year 3", 3], ["Year 4", 4], ["Year 5", 5], ["Year 6", 6], ["Year 7", 7], ["Year 8", 8], ["Year 9", 9], ["Year 10", 10], ["Year 11", 11], ["Year 12 or above", 12]];
 const SKILLNAME = { literal: "Retrieval (KS2 domain 2b)", inference: "Inference (2d)", vocabulary: "Vocabulary in context (2a)" };
@@ -327,12 +330,18 @@ const GUIDE = {
     "Say the sound to remove (for example /s/), not the letter name. Accept the correct remaining word."],
   pa_iso: ["Say: \"I will say a word and ask you about a sound in it.\" Practise with \"What is the first sound in cat?\" (/k/).",
     "Accept the sound, not the letter name. For \"fish\" the last sound is /sh/."],
+  numid: ["Say: \"Here are some numbers in a mixed-up order. Read them to me, one row at a time.\" There are two screens: first the numbers 0 to 10, then ten numbers between 11 and 100. The child sees the same numbers that you see on the console.",
+    "Do not help or point. Tap any number the child did not read correctly (it turns red). A box then asks what the child said instead: type it as digits or words, for example 41 or forty-one. Choose Child gave no answer if they could not say anything. The report separates complete misreads from reversals (for example 14 read as 41) and teen/tens mix-ups (for example 16 read as sixty). Accept self-corrections as correct."],
   alpha: ["Say: \"Here are some letters in a mixed-up order. Read them to me, one row at a time. You can tell me the name of the letter or the sound it makes.\" There are two screens: capital letters first, then small letters.",
     "Do not help or point. Tap any letter the child could not read correctly (it turns red). If you want, type what the child said for that letter, for example b for d. Then press Save this part."],
   word: ["Say: \"I am going to show you some words. Read each one out loud. If you do not know a word, say skip.\"",
     "Do not help the child sound out words. Count a self-correction as correct. Type what the child said if it was wrong: it is used in the error analysis."],
   comp: ["The child reads each passage on their own screen and taps an answer. You may read the instructions aloud, but not the passage or questions. Optionally ask the child to read the passage aloud: tap any word they misread in the passage shown on your screen (tap again to undo). If they read it with no errors, tap No misread words. Misread words appear in the report.",
     "Passages and questions get harder. Add a note if an adult helped or the child asked for words to be read."],
+  numer_sub: ["Say: \"You are going to see some dots for a very short time. Then they will go. Tell me how many there were by typing the number.\" Do not ask the child to count aloud. Say \"just look\" if they try to count on the screen.",
+    "The dots appear for one second on the child's screen after a short plus sign. Marking is automatic (exact number). Small numbers (1 to 3, often 4) are usually seen at a glance; 5 to 9 are too many to count in one second, so a close guess is common. This tests quick, exact judgement of small quantities. There is no stopping rule. If the child could not see the dots (for example a connection problem), note it and use Mark incorrect only if the child did see them."],
+  numer_cmp: ["Say: \"You will see two groups of dots, one on each side, for a short time. Then tap the side that had more dots. Do not count: just look and decide. You can guess.\"",
+    "Each pair is shown for one and a half seconds. Pairs get harder (the two groups get closer in number) and the size of the dots is varied so that the answer cannot be worked out from the amount of ink alone. Marking is automatic. There is no stopping rule. Chance is 50%, so say that guessing is fine. Do not tell the child whether they were right."],
   maths: ["The child types each answer and taps Send. You may read a question aloud if reading is a barrier: note this against the item.",
     "Paper and pencil are not allowed. Move on after about 30 seconds without an answer."],
   listen: ["Read each story aloud ONCE at a natural pace. Then ask the questions one at a time. A question may be repeated once, but not the story.",
@@ -574,6 +583,9 @@ const isPV = () => !!(S && S.setup && S.setup.preview);
 const curIdx = () => isPV() ? PV.idx : respFor(S.test_key).length;
 const curItem = () => curItems()[curIdx()];
 const typeOf = tk => ((ITEMS[tk] || [])[0] || { payload: {} }).payload.type;
+const isGridT = tk => { const t = typeOf(tk); return t === "letter" || t === "numid"; };
+const partStarts = tk => typeOf(tk) === "numid" ? [0, 11] : [0, 26];
+const lastPartSize = (tk, n) => typeOf(tk) === "numid" ? (n > 11 ? n - 11 : n) : Math.min(26, n);
 const isIntro = () => S.stimulus && S.stimulus.type === "intro";
 const LV = (tk, l) => LEVELS[tk + "|" + l];
 const yearText = lv => lv ? `${lv.year_label} (typical age ${lv.age_from} to ${lv.age_to})` : "";
@@ -631,12 +643,15 @@ function stimulusFor(item) {
   if (p.type === "word") return { type: "word", text: p.text };
   if (p.type === "mcq") { const perm = permFor(item); return { type: "mcq", passage: p.passage, q: p.q, options: perm.map(i => p.options[i]) }; }
   if (p.type === "num") return { type: "num", q: p.q, visual: p.visual };
+  if (p.type === "dots") return { type: "dots", n: p.n, kind: p.kind, seed: p.seed, r: p.r, ms: p.ms };
+  if (p.type === "cmp") return { type: "cmp", nl: p.nl, nr: p.nr, cong: p.cong, seed: p.seed, ms: p.ms };
   if (p.type === "span") return { type: "listen", title: "Listen carefully", text: SPANTEXT[p.mode], audio: true };
   if (p.type === "spell") return { type: "spell", title: "Spelling", text: "Listen to the word. Then type it.", audio: true };
   if (p.type === "pa") return { type: "listen", title: "Listen carefully", text: "Then answer out loud." };
   if (p.type === "ran") return { type: "ran", phase: "check", cond: p.cond, title: p.label, text: "Name each one out loud.", symbols: p.symbols };
   if (p.type === "open") return { type: "passage", title: "Read the text", text: p.passage, q: p.qno === 1 || true ? p.q : "" };
   if (p.type === "fluency") return { type: "listen", title: "Get ready to read", text: "Wait for your teacher to say go." };
+  if (p.type === "numid") return { type: "letters", title: p.part === 1 ? "Numbers" : "More numbers", text: "Read the numbers out loud, row by row.", letters: (ITEMS[item.test_key] || []).filter(i => i.payload.part === p.part).map(i => i.payload.text) };
   if (p.type === "letter") return { type: "letters", title: p.part === 1 ? "Capital letters" : "Small letters", text: "Read the letters out loud, row by row. You can say the name or the sound.", letters: (ITEMS[item.test_key] || []).filter(i => i.payload.part === p.part).map(i => i.payload.text) };
   if (p.type === "listen") return p.first ? { type: "listen", title: "Listen to the story", text: "Then answer the questions out loud.", audio: true } : { type: "listen", title: `Question ${p.qno} of ${p.of}`, text: "Answer out loud.", audio: true };
   return null;
@@ -645,20 +660,24 @@ const introFor = tk => ({ type: "intro", title: TESTS[tk].title, text: TESTS[tk]
 
 function expectedText(item) {
   const p = item.payload;
-  if (p.type === "word" || p.type === "letter" || p.type === "spell") return p.text;
+  if (p.type === "word" || p.type === "letter" || p.type === "spell" || p.type === "numid") return p.text;
   if (p.type === "pa") return item.answer.accept;
   if (p.type === "fluency" || p.type === "ran") return "";
   if (p.type === "open") return item.answer.accept;
   if (p.type === "mcq") return p.options[item.answer.correct];
   if (p.type === "num") return String(item.answer.value);
+  if (p.type === "dots") return String(p.n);
+  if (p.type === "cmp") return item.answer.correct === 0 ? "left" : "right";
   if (p.type === "listen") return item.answer.accept;
   if (p.type === "span") return item.answer.seq.join(p.mode === "words" ? " " : " ");
 }
 function itemLabel(item) {
   const p = item.payload;
-  if (p.type === "word" || p.type === "letter" || p.type === "spell") return p.text;
+  if (p.type === "word" || p.type === "letter" || p.type === "spell" || p.type === "numid") return p.text;
   if (p.type === "span") return p.seq.join(" ");
   if (p.type === "fluency") return "One-minute reading";
+  if (p.type === "dots") return p.n + " dots";
+  if (p.type === "cmp") return p.nl + " v " + p.nr + " dots";
   if (p.type === "ran") return "Rapid naming: " + p.label;
   return p.q;
 }
@@ -673,6 +692,8 @@ function autoMark(item, ans) {
     const v = parseFloat(clean(ans)); if (Number.isNaN(v)) return 0;
     return Math.abs(v - Number(item.answer.value)) < 0.0051 ? 1 : 0;
   }
+  if (p.type === "dots") { const v = parseInt(String(ans).replace(/[^0-9]/g, ""), 10); return v === Number(p.n) ? 1 : 0; }
+  if (p.type === "cmp") return Number(ans) === Number(item.answer.correct) ? 1 : 0;
   if (p.type === "spell") return String(ans).trim().toLowerCase() === String(item.answer.value).toLowerCase() ? 1 : 0;
   if (p.type === "span") { const r = parseSpan(p, ans); return sameSeq(r, item.answer.seq, p.mode) ? 1 : 0; }
   return null;
@@ -745,7 +766,9 @@ const PRACTICE = {
   nonword: { stim: { type: "word", text: "mib" }, expect: "mib (to rhyme with rib)" },
   spell: { stim: { type: "spell", title: "Practice", text: "Listen to the word. Then type it.", audio: true }, say: "sun. The sun is hot. sun.", expect: "sun" },
   comp: { stim: { type: "mcq", passage: "Sam has a dog. The dog is brown.", q: "What colour is the dog?", options: ["brown", "black", "white", "red"] }, expect: "brown (first option)" },
-  maths: { stim: { type: "num", q: "What is 1 + 1?" }, expect: "2" }
+  maths: { stim: { type: "num", q: "What is 1 + 1?" }, expect: "2" },
+  numer_sub: { stim: { type: "dots", n: 3, kind: "dice", seed: 11, r: 4.4, ms: 1500 }, expect: "3 (the dots show once, then the child types the number)" },
+  numer_cmp: { stim: { type: "cmp", nl: 12, nr: 4, cong: true, seed: 21, ms: 2500 }, expect: "LEFT (12 v 4; the child taps the side that had more)" }
 };
 async function donePractice(again) {
   const tk = S.test_key, setup = { ...S.setup, practice: again ? tk : null, practised: { ...((S.setup || {}).practised || {}), [tk]: true } };
@@ -757,7 +780,7 @@ function drawPractice(tk) {
   const P = PRACTICE[tk], box = $("itembox"), marks = $("marks");
   box.append(h("p", { style: "font-weight:700" }, "Practice item (not scored)"), h("p", { class: "muted" }, "Check that the child understands what to do. Expected: " + P.expect));
   if (P.say) { box.append(audioBar({ test_key: tk }, () => ({ kind: "text", text: P.say, rate: sayRate }), "Read practice word")); updSound(); }
-  if (P.stim.type === "mcq" || P.stim.type === "num") { const a = childAnswer && childAnswer.answer; box.append(h("p", {}, a == null ? "Waiting for the child's answer…" : "Child answered: " + (P.stim.type === "mcq" ? (P.stim.options[Number(a)] || a) : a))); }
+  if (["mcq", "num", "dots", "cmp"].includes(P.stim.type)) { const a = childAnswer && childAnswer.answer; box.append(h("p", {}, a == null ? "Waiting for the child's answer…" : "Child answered: " + (P.stim.type === "mcq" ? (P.stim.options[Number(a)] || a) : (P.stim.type === "cmp" ? (Number(a) === 0 ? "left" : "right") : a)))); }
   marks.append(h("button", { class: "primary", on: { click: () => donePractice(false) } }, "Understood: start the real items"), h("button", { on: { click: () => donePractice(true) } }, "Practise again"));
 }
 function drawAudioCheck() {
@@ -824,7 +847,7 @@ async function completeTest() {
 
 async function pvStep(d) {
   if (busy) return; busy = true;
-  try { const lt = typeOf(S.test_key) === "letter", n = lt ? Math.max(0, Math.min(curItems().length - 26, PV.idx + d * 26)) : Math.max(0, Math.min(curItems().length - 1, PV.idx + d)); PV.idx = n; if (await pushItem(n)) renderAll(); } finally { busy = false; }
+  try { const lt = isGridT(S.test_key), st = partStarts(S.test_key), n = lt ? st[Math.max(0, Math.min(st.length - 1, Math.max(0, st.indexOf(PV.idx)) + d))] : Math.max(0, Math.min(curItems().length - 1, PV.idx + d)); PV.idx = n; if (await pushItem(n)) renderAll(); } finally { busy = false; }
 }
 async function pvGoto(tk, idx) {
   if (busy) return; busy = true;
@@ -883,7 +906,7 @@ function renderNav() {
   $("nav").hidden = !isPV(); if (!isPV()) return;
   const tk = S.test_key, items = curItems();
   $("nav-act").replaceChildren(...PLAN.map(k => h("option", { value: k, selected: k === tk ? true : false }, (TESTS[k] || {}).title || k)));
-  const opts = [h("option", { value: -1, selected: isIntro() ? true : false }, "Instructions screen")].concat(items.map((it, i) => [it, i]).filter(([it]) => typeOf(tk) !== "letter" || it.payload.pos === 1).map(([it, i]) => h("option", { value: i, selected: !isIntro() && i === PV.idx ? true : false }, typeOf(tk) === "letter" ? (it.payload.part === 1 ? "Part 1: capital letters" : "Part 2: small letters") : `${i + 1}. level ${it.level}: ${String(itemLabel(it)).slice(0, 40)}`)));
+  const opts = [h("option", { value: -1, selected: isIntro() ? true : false }, "Instructions screen")].concat(items.map((it, i) => [it, i]).filter(([it]) => !isGridT(tk) || it.payload.pos === 1).map(([it, i]) => h("option", { value: i, selected: !isIntro() && i === PV.idx ? true : false }, typeOf(tk) === "numid" ? (it.payload.part === 1 ? "Part 1: numbers 0 to 10" : "Part 2: numbers 11 to 100") : typeOf(tk) === "letter" ? (it.payload.part === 1 ? "Part 1: capital letters" : "Part 2: small letters") : `${i + 1}. level ${it.level}: ${String(itemLabel(it)).slice(0, 40)}`)));
   $("nav-item").replaceChildren(...opts);
 }
 $("nav-act").onchange = e => pvGoto(e.target.value, -1);
@@ -908,7 +931,7 @@ async function record(mark, flag, meta) {
     const item = curItem(); if (!item) return;
     const p = item.payload, typed = $("resp").value.trim();
     let answer = null;
-    if (p.type === "mcq" || p.type === "num") { const raw = childAnswer && childAnswer.seq === S.stimulus_seq ? childAnswer.answer : null; answer = raw == null ? null : (p.type === "mcq" ? (stimulusFor(item).options[Number(raw)] || raw) : raw); }
+    if (p.type === "mcq" || p.type === "num" || p.type === "dots" || p.type === "cmp") { const raw = childAnswer && childAnswer.seq === S.stimulus_seq ? childAnswer.answer : null; answer = raw == null ? null : (p.type === "mcq" ? (stimulusFor(item).options[Number(raw)] || raw) : (p.type === "cmp" ? (Number(raw) === 0 ? "left" : "right") : raw)); }
     else if (p.type === "spell") answer = realAnswer() || typed || null;
     else answer = typed || null;
     const row = { session_id: S.id, test_key: S.test_key, ord: item.ord, item_id: item.item_id, level: item.level, skill: item.skill,
@@ -930,7 +953,7 @@ async function undo() {
   if (isPV()) return pvStep(-1);
   if (busy) return; const rs = respFor(S.test_key); if (!rs.length) return; busy = true;
   try {
-    const n = typeOf(S.test_key) === "letter" ? Math.min(26, rs.length) : 1, gone = rs.slice(-n).map(r => r.ord);
+    const n = isGridT(S.test_key) ? lastPartSize(S.test_key, rs.length) : 1, gone = rs.slice(-n).map(r => r.ord);
     const { error } = await sb.from("assess_responses").delete().eq("session_id", S.id).eq("test_key", S.test_key).in("ord", gone);
     if (error) { alert("Could not undo: " + error.message); return; }
     RESP = RESP.filter(r => !(r.test_key === S.test_key && gone.includes(r.ord)));
@@ -964,7 +987,7 @@ function renderAll() {
   $("live").hidden = ended; $("results").hidden = !ended; $("r-join").hidden = ended;
   if (ended) { poolButtons(); return; }
   const idle = !!(S.setup || {}).idle, intro = isIntro(), waiting = S.status === "waiting", paused = S.status === "paused", stopped = !idle && stopReached();
-  const isLt = typeOf(tk) === "letter";
+  const isLt = isGridT(tk);
   $("prog").textContent = idle ? "Between activities" : `${TESTS[tk].title}: ${waiting || intro ? "ready" : (isLt ? "part " + Math.min(Math.floor(curIdx() / 26) + 1, 2) + " of 2" : "item " + Math.min(curIdx() + 1, items.length) + " of " + items.length)}`;
   $("progbar").style.width = (items.length ? Math.round(100 * curIdx() / items.length) : 0) + "%";
   $("levelnote").textContent = !waiting && !intro && item && !isLt ? (stopMode(tk) === "pair" ? `Length ${item.level}, try ${item.payload.trial}` : `Level ${item.level}  ·  stop after ${TESTS[tk].stop_after} errors in a row (now ${consec(tk)})`) : "";
@@ -1023,9 +1046,54 @@ async function saveLetters(part) {
     await pushItem(curIdx()); renderAll();
   } finally { busy = false; }
 }
+/* ---------------- reading numbers: tap wrong, pop-up asks what the child said ---------------- */
+let NWRONG = new Set(), NSAID = {};
+function askSaid(item, cur) {
+  return new Promise(resolve => {
+    const dlg = h("dialog", { class: "saiddlg", "aria-labelledby": "sd-t" });
+    const inp = h("input", { id: "sd-in", type: "text", maxlength: 40, autocomplete: "off", value: cur || "", style: "font-size:1.4rem;width:100%;margin:.4em 0" });
+    let done = false; const fin = v => { if (done) return; done = true; try { dlg.close(); } catch { } dlg.remove(); resolve(v); };
+    dlg.append(h("h3", { id: "sd-t", style: "margin:.1em 0" }, `The number was ${item.payload.text}`), h("label", { for: "sd-in" }, "What did the child say instead? You can type digits or words (for example 41 or forty-one)."), inp,
+      h("div", { style: "display:flex;gap:8px;flex-wrap:wrap" },
+        h("button", { class: "primary", type: "button", on: { click: () => fin({ said: inp.value.trim() }) } }, "Save"),
+        h("button", { type: "button", on: { click: () => fin({ said: "" }) } }, "Child gave no answer"),
+        h("button", { type: "button", on: { click: () => fin(null) } }, "Cancel (they read it correctly)")));
+    dlg.addEventListener("cancel", e => { e.preventDefault(); fin(null); });
+    inp.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); fin({ said: inp.value.trim() }); } });
+    document.body.append(dlg); if (dlg.showModal) dlg.showModal(); else dlg.setAttribute("open", ""); setTimeout(() => inp.focus(), 30);
+  });
+}
+function drawNumId(item) {
+  const p = item.payload, box = $("itembox"), marks = $("marks"), part = curItems().filter(i => i.payload.part === p.part);
+  NWRONG = new Set(); NSAID = {}; $("respbox").hidden = true;
+  const note = h("div", { id: "numsaid", class: "muted", "aria-live": "polite" });
+  const redraw = () => { note.replaceChildren(...part.filter(i => NWRONG.has(i.item_id)).map(i => h("div", {}, `${i.payload.text}: child said ${NSAID[i.item_id] ? NSAID[i.item_id] : "nothing / no answer"}`))); };
+  const btn = new Map();
+  const grid = h("div", { class: "letgrid" }, ...part.map(i => { const b = h("button", { type: "button", "aria-pressed": "false", on: { click: async () => {
+    if (NWRONG.has(i.item_id)) { NWRONG.delete(i.item_id); delete NSAID[i.item_id]; b.classList.remove("wrong"); b.setAttribute("aria-pressed", "false"); redraw(); return; }
+    const r = await askSaid(i, NSAID[i.item_id]); if (!r) return;
+    NWRONG.add(i.item_id); NSAID[i.item_id] = r.said; b.classList.add("wrong"); b.setAttribute("aria-pressed", "true"); redraw();
+  } } }, i.payload.text); btn.set(i.item_id, b); return b; }));
+  box.append(h("p", { class: "muted" }, `Part ${p.part} of 2: ${p.part === 1 ? "numbers 0 to 10, in a mixed-up order" : "numbers 11 to 100, in a mixed-up order"}, shown to the child in this order. Tap any number the child did not read correctly. A box asks what they said instead. Tap a red number again to clear it.`), grid, note);
+  marks.append(h("button", { class: "primary", on: { click: () => saveNumId(part) } }, "Save this part and continue"));
+}
+async function saveNumId(part) {
+  if (busy) return; busy = true;
+  try {
+    if (isPV()) { busy = false; return pvStep(1); }
+    const note = $("note").value.trim();
+    const rows = part.map((it, k) => { const wrong = NWRONG.has(it.item_id), said = NSAID[it.item_id] || null; return { session_id: S.id, test_key: S.test_key, ord: it.ord, item_id: it.item_id, level: it.level, skill: it.skill, child_answer: wrong ? said : null, mark: wrong ? 0 : 1, flag: wrong && !said ? "no response" : null, ms: pushedAt ? Date.now() - pushedAt : null, note: k === 0 && note ? note : null }; });
+    const { error } = await sb.from("assess_responses").insert(rows);
+    if (error) { alert("Could not save: " + error.message); return; }
+    RESP.push(...rows); $("note").value = "";
+    if (curIdx() >= curItems().length) { await completeTest(); return; }
+    await pushItem(curIdx()); renderAll();
+  } finally { busy = false; }
+}
 function drawItem(item) {
   const p = item.payload, box = $("itembox"), marks = $("marks");
   if (p.type === "letter") { drawLetters(item); return; }
+  if (p.type === "numid") { drawNumId(item); return; }
   $("respbox").hidden = !(p.type === "word" || p.type === "listen" || p.type === "span" || p.type === "spell" || p.type === "pa" || p.type === "open");
   if (p.type === "ran") { drawRan(item); return; }
   if (p.type === "fluency") { drawFluency(item); return; }
@@ -1045,6 +1113,19 @@ function drawItem(item) {
     markButtons(item, "Accept and next");
   } else if (p.type === "num") {
     box.append(h("h3", {}, p.q), p.visual ? h("div", { style: "font-size:2rem" }, p.visual) : null, h("div", { class: "muted" }, "Correct answer: " + item.answer.value));
+    markButtons(item, "Accept and next");
+  } else if (p.type === "dots") {
+    let pv = ""; try { pv = POPSNUM.svg(POPSNUM.layout(p), 150); } catch (e) { }
+    box.append(h("p", { class: "muted" }, `Quick look ${p.no} of ${p.of}. The dots show for ${(p.ms / 1000).toFixed(1)} s on the child's screen, then the child types the number.`),
+      h("div", { class: "big" }, "Correct answer: " + p.n), h("div", { class: "muted" }, `Arrangement: ${p.kind === "dice" ? "dice pattern" : p.kind === "grouped" ? "grouped" : "scattered"}`),
+      htmlDiv(pv, "margin:8px 0;border:1px solid #cdd6e0;display:inline-block;border-radius:8px"));
+    markButtons(item, "Accept and next");
+  } else if (p.type === "cmp") {
+    let pv = ""; try { const c = POPSNUM.cmpLayout(p); pv = `<div style="display:flex;gap:12px">${POPSNUM.svg(c.left, 130)}${POPSNUM.svg(c.right, 130)}</div>`; } catch (e) { }
+    box.append(h("p", { class: "muted" }, `Which has more? ${p.no} of ${p.of}. Both groups show for ${(p.ms / 1000).toFixed(1)} s on the child's screen, then the child taps LEFT or RIGHT.`),
+      h("div", { class: "big" }, `Correct side: ${item.answer.correct === 0 ? "LEFT" : "RIGHT"} (${p.nl} v ${p.nr})`),
+      h("div", { class: "muted" }, `Ratio ${p.ratio}:1 · ${p.cong ? "the larger group also has more total dot area" : "the larger group has less total dot area (size cue is misleading)"}`),
+      htmlDiv(pv, "margin:8px 0"));
     markButtons(item, "Accept and next");
   } else if (p.type === "listen") {
     $("resp-label").textContent = "What did the child say?";
@@ -1256,7 +1337,7 @@ function renderAnswer() {
   const item = curItem(), ab = $("ansbox");
   if (!item || S.status !== "running" || isIntro() || (S.setup || {}).idle || stopReached()) { ab.hidden = true; return; }
   const p = item.payload;
-  if (p.type === "word" || p.type === "listen" || p.type === "letter" || p.type === "pa" || p.type === "fluency") { ab.hidden = true; return; }
+  if (p.type === "word" || p.type === "listen" || p.type === "letter" || p.type === "numid" || p.type === "pa" || p.type === "fluency") { ab.hidden = true; return; }
   if (p.type === "spell") { const ans = realAnswer() || $("resp").value.trim(); if (!ans) { ab.className = "answer"; ab.textContent = "Waiting for the child to type the word…"; return; } const a = autoMark(item, ans); ab.className = "answer has"; ab.textContent = `Spelled: ${ans}  →  ${a === 1 ? "correct" : "incorrect (correct: " + item.answer.value + ")"}`; return; }
   ab.hidden = false;
   if (p.type === "span") {
@@ -1267,7 +1348,7 @@ function renderAnswer() {
   }
   const ans = childAnswer && childAnswer.answer;
   if (ans == null || ans === "") { ab.className = "answer"; ab.textContent = "Waiting for the child's answer…"; return; }
-  const a = autoMark(item, ans), shown = p.type === "mcq" ? (stimulusFor(item).options[Number(ans)] || ans) : ans;
+  const a = autoMark(item, ans), shown = p.type === "mcq" ? (stimulusFor(item).options[Number(ans)] || ans) : (p.type === "cmp" ? (Number(ans) === 0 ? "left" : "right") : ans);
   ab.className = "answer has"; ab.textContent = `Child answered: ${shown}  →  ${a === 1 ? "correct" : "incorrect"}`;
 }
 
@@ -1321,8 +1402,38 @@ function summarise(tk) {
     out.span = span; out.byLen = byLen; out.maxLen = Math.max(...items.map(i => i.level)); return out;
   }
   if (kind === "pa") { out.pct = rs.length ? Math.round(100 * out.correct / rs.length) : 0; return out; }
+  if (kind === "dots") {
+    const rows = rs.map(r => { const it = ITEMBY[r.item_id], v = parseInt(String(r.child_answer == null ? "" : r.child_answer).replace(/[^0-9]/g, ""), 10); return { n: it ? it.payload.n : null, said: Number.isNaN(v) ? null : v, ok: r.mark === 1 }; }).filter(r => r.n != null);
+    const part = f => { const x = rows.filter(f); return { n: x.length, c: x.filter(y => y.ok).length }; };
+    out.small = part(r => r.n <= 3); out.four = part(r => r.n === 4); out.large = part(r => r.n >= 5);
+    const lg = rows.filter(r => r.n >= 5 && r.said != null), wr = rows.filter(r => !r.ok && r.said != null);
+    out.pct = rows.length ? Math.round(100 * out.correct / rows.length) : 0;
+    out.offByOne = wr.filter(r => Math.abs(r.said - r.n) === 1).length; out.wrongWithAnswer = wr.length;
+    out.under = lg.filter(r => r.said < r.n).length; out.over = lg.filter(r => r.said > r.n).length;
+    out.maeLarge = lg.length ? Math.round(10 * lg.reduce((a, r) => a + Math.abs(r.said - r.n), 0) / lg.length) / 10 : null;
+    return out;
+  }
+  if (kind === "cmp") {
+    const t = rs.map(r => { const it = ITEMBY[r.item_id]; return it ? { a: it.payload.nl, b: it.payload.nr, ok: r.mark === 1, ratio: it.payload.ratio, cong: it.payload.cong, none: r.flag === "no response" } : null; }).filter(Boolean);
+    const by = {}; t.forEach(x => { const o = by[x.ratio] = by[x.ratio] || { n: 0, c: 0 }; o.n++; o.c += x.ok ? 1 : 0; });
+    const grp = f => { const x = t.filter(f); return { n: x.length, c: x.filter(y => y.ok).length }; };
+    out.byRatio = by; out.cong = grp(x => x.cong); out.incong = grp(x => !x.cong);
+    out.easy = grp(x => x.ratio >= 2); out.mid = grp(x => x.ratio < 2 && x.ratio > 1.3); out.hard = grp(x => x.ratio <= 1.3);
+    out.pct = t.length ? Math.round(100 * out.correct / t.length) : 0;
+    out.weber = window.POPSNUM.weber(t.filter(x => !x.none).map(x => ({ a: x.a, b: x.b, ok: x.ok })));
+    return out;
+  }
   if (kind === "fluency") { try { out.flu = JSON.parse(rs[0].child_answer); } catch { out.flu = null; } return out; }
   if (kind === "ran") { out.ran = rs.map(r => { let o = {}; try { o = JSON.parse(r.child_answer) || {}; } catch { } return { cond: o.cond, label: o.label, skipped: !!o.skipped, secs: o.secs, errors: o.errors, self: o.self, n: o.n }; }); return out; }
+  if (kind === "numid") {
+    const P = { a: { c: 0, n: 0 }, b: { c: 0, n: 0 } }, errs = [];
+    rs.forEach(r => { const it = ITEMBY[r.item_id]; if (!it) return; const o = it.payload.part === 1 ? P.a : P.b; o.n++; o.c += r.mark; if (!r.mark) { const t = Number(it.payload.text), cl = window.POPSNUM.classifyNumErr(t, r.child_answer); errs.push({ part: it.payload.part, target: t, said: r.child_answer, none: r.flag === "no response" || cl.cls === "none", cls: cl.cls, label: cl.label, v: cl.v }); } });
+    out.p1 = P.a; out.p2 = P.b; out.errs = errs;
+    out.rev = errs.filter(e => e.cls === "reversal").length; out.teenty = errs.filter(e => e.cls === "teenty").length;
+    out.partial = errs.filter(e => e.cls === "tensright" || e.cls === "unitsright").length; out.none = errs.filter(e => e.none).length;
+    out.complete = errs.filter(e => !e.none && ["different", "close", "other", "place"].includes(e.cls)).length;
+    return out;
+  }
   if (kind === "letter") {
     out.parts = { upper: { c: 0, n: 0, err: [] }, lower: { c: 0, n: 0, err: [] } };
     rs.forEach(r => { const it = ITEMBY[r.item_id]; if (!it) return; const o = out.parts[it.payload.case]; o.n++; o.c += r.mark; if (!r.mark) o.err.push({ ch: it.payload.text, said: r.child_answer, none: r.flag === "no response" }); });
@@ -1491,6 +1602,31 @@ function paSection(tk, sm) {
   const notes = rs.filter(r => r.note).map(r => `<li>Item ${r.ord}: ${E(r.note)}</li>`); if (notes.length) html += `<h3>Assessor notes</h3><ul>${notes.join("")}</ul>`;
   return html;
 }
+function dotsSection(tk, sm) {
+  const pc = o => o.n ? `${o.c} of ${o.n} (${Math.round(100 * o.c / o.n)}%)` : "not given";
+  let html = `<h2>${E(TESTS[tk].title.replace(/^Maths: /, "Maths: "))}</h2>`;
+  html += `<p>The child saw a pattern of dots for one second and typed how many there were. <b>${sm.correct} of ${sm.attempted}</b> were correct (${sm.pct}%).</p>`;
+  html += table(["Number of dots", "Correct"], [["1 to 3 (read at a glance)", pc(sm.small)], ["4", pc(sm.four)], ["5 to 9 (too many to count in the time)", pc(sm.large)]]);
+  if (sm.large.n && sm.maeLarge != null) html += `<p>For 5 to 9 dots the answers were on average ${sm.maeLarge} away from the true number (${sm.under} under-estimates and ${sm.over} over-estimates among the answers given).</p>`;
+  html += `<p class="note">Most children can name very small quantities (about 1 to 3, often 4) at a glance without counting, whereas larger quantities usually need grouping, counting or estimating. Research on this kind of task shows differences, on average, between groups of children with and without mathematics difficulties, but results for individual children vary and the findings are mixed (for example, some studies find large-set estimation rather than small-set recognition to be the weaker skill). This is an informal activity with no norms. It cannot identify dyscalculia and should be interpreted together with arithmetic and standardised results. Display time is controlled on the child's own device, so very slow connections or screens may change what the child saw.</p>`;
+  const notes = respFor(tk).filter(r => r.note).map(r => `<li>Item ${r.ord}: ${E(r.note)}</li>`); if (notes.length) html += `<h3>Assessor notes</h3><ul>${notes.join("")}</ul>`;
+  return html;
+}
+function cmpSection(tk, sm) {
+  const pc = o => o.n ? `${o.c} of ${o.n} (${Math.round(100 * o.c / o.n)}%)` : "not given";
+  let html = `<h2>${E(TESTS[tk].title)}</h2>`;
+  html += `<p>The child saw two groups of dots for one and a half seconds and tapped the side with more dots, without counting. <b>${sm.correct} of ${sm.attempted}</b> were correct (${sm.pct}%). Guessing would give about 50%.</p>`;
+  const labels = { 3: "3 to 1 (very easy)", 2: "2 to 1", 1.5: "3 to 2", 1.33: "4 to 3", 1.25: "5 to 4", 1.17: "7 to 6 (hardest)" };
+  html += table(["How different the two groups were", "Correct"], Object.keys(sm.byRatio).map(Number).sort((a, b) => b - a).map(r => [labels[r] || String(r), pc(sm.byRatio[r])]));
+  html += table(["Dot size cue", "Correct"], [["The larger group also covered more area", pc(sm.cong)], ["The larger group covered less area (size was misleading)", pc(sm.incong)]]);
+  if (sm.cong.n >= 6 && sm.incong.n >= 6 && (sm.cong.c / sm.cong.n) - (sm.incong.c / sm.incong.n) >= 0.3) html += `<p>Accuracy was clearly higher when the larger group also covered more area. This suggests that the child may have relied partly on the total amount of dots (area) rather than on the number of dots.</p>`;
+  const w = sm.weber;
+  if (w && w.w != null) html += `<p>Indicative Weber fraction (w): <b>${w.w}</b> based on ${w.n} trials. Lower values mean finer discrimination. ${w.note ? E(w.note) + ". " : ""}This estimate is based on few trials and is unreliable for an individual child (it is shown for interest and for comparison with later sessions only). No norms are provided.</p>`;
+  else if (w) html += `<p>A Weber fraction could not be estimated: ${E(w.note || "too few trials")}.</p>`;
+  html += `<p class="note">Judging which of two sets has more, without counting, is thought to draw on an approximate sense of quantity. Research reports, on average, poorer performance on tasks like this in children with mathematics difficulties, but the size of the difference varies between studies, scores on these tasks are not very reliable for individuals, and the visual features of the dots (such as size and area) affect performance. This informal activity has no norms and cannot diagnose a learning difficulty. The dot size and total area were varied systematically; other visual features, such as the spread of the dots, were not controlled.</p>`;
+  const notes = respFor(tk).filter(r => r.note).map(r => `<li>Item ${r.ord}: ${E(r.note)}</li>`); if (notes.length) html += `<h3>Assessor notes</h3><ul>${notes.join("")}</ul>`;
+  return html;
+}
 function fluencyResult(sm) { return sm.flu || null; }
 function fluencyEquivText(f) {
   const e = fluEquiv(f.wcpm); if (!e) return "";
@@ -1516,6 +1652,26 @@ function fluencySection(tk, sm) {
   return html;
 }
 
+function numidSection(tk, sm) {
+  let html = `<h2>${E(TESTS[tk].title)}</h2>`;
+  html += `<p>The child was shown the numbers 0 to 10 in a mixed-up order and then ten numbers between 11 and 100, and was asked to read each one aloud. <b>Numbers 0 to 10: ${sm.p1.c} of ${sm.p1.n}. Numbers 11 to 100: ${sm.p2.c} of ${sm.p2.n}.</b></p>`;
+  const rows = sm.errs.map(e => [e.part === 1 ? "0 to 10" : "11 to 100", String(e.target), e.said || (e.none ? "no response" : "not recorded"), e.label]);
+  html += `<h3>Numbers not read correctly</h3>` + (rows.length ? table(["Set", "Number shown", "What the child said", "Type of error"], rows) : `<p>All numbers were read correctly.</p>`);
+  if (sm.errs.length) {
+    const bits = [];
+    if (sm.rev) bits.push(`${sm.rev} digit reversal${sm.rev > 1 ? "s" : ""} (for example 14 read as 41)`);
+    if (sm.teenty) bits.push(`${sm.teenty} teen/tens mix-up${sm.teenty > 1 ? "s" : ""} (for example 16 read as sixty)`);
+    if (sm.partial) bits.push(`${sm.partial} number${sm.partial > 1 ? "s" : ""} with one digit read correctly`);
+    if (sm.complete) bits.push(`${sm.complete} read as a completely different number`);
+    if (sm.none) bits.push(`${sm.none} with no response`);
+    html += `<p>Error pattern: ${bits.join("; ")}.</p>`;
+  }
+  if (sm.rev) html += `<p>Reversals are common while children are learning number symbols, and usually reduce through Key Stage 1. In English, teen numbers are spoken with the units first (four-teen) but written with the tens first (14), which is a recognised source of reversals such as 14 read as 41. Reversals that persist in older children, especially alongside letter reversals or difficulties with place value, are worth exploring further.</p>`;
+  if (sm.p1.n && sm.p1.c < sm.p1.n) html += `<p>Errors on the numbers 0 to 10 suggest that number symbol knowledge is not yet secure, which would be expected to affect counting, number bonds and early calculation.</p>`;
+  html += `<p class="note">This is an informal activity with no norms; most children can read the numbers 0 to 10 by the end of Reception and numbers to 100 during Key Stage 1 (see the National Curriculum for mathematics). Note that the child's answer is recorded by the assessor from what was heard, so unclear speech or a poor audio connection may affect accuracy.</p>`;
+  const notes = respFor(tk).filter(r => r.note).map(r => `<li>${E(r.note)}</li>`); if (notes.length) html += `<h3>Assessor notes</h3><ul>${notes.join("")}</ul>`;
+  return html;
+}
 function letterSection(tk, sm) {
   const P = sm.parts, REV = "bdpq";
   let html = `<h2>${E(TESTS[tk].title)}</h2>`;
@@ -1656,6 +1812,8 @@ function buildProfile(SM, conf) {
   [["word", "word"], ["nonword", "nonword"], ["spell", "spell"], ["comp", "comp"], ["comp_open", "compOpen"], ["listen", "listen"], ["maths", "maths"]].forEach(([k, o]) => { const v = g(k); if (v && v.attempted) d[o] = v; });
   d.pa = {}; [["pa_blend", "blend"], ["pa_seg", "seg"], ["pa_elis", "elis"], ["pa_iso", "iso"]].forEach(([k, o]) => { if (SM[k] && SM[k].attempted) d.pa[o] = { pct: SM[k].pct, n: SM[k].attempted }; });
   ["dsf", "dsb", "wsf"].forEach(k => { if (SM[k] && SM[k].attempted) d[k] = { span: SM[k].span || 0 }; });
+  const ni = SM.numid; if (ni && ni.attempted) d.numid = { p1: ni.p1, p2: ni.p2, rev: ni.rev, teenty: ni.teenty, partial: ni.partial, complete: ni.complete, none: ni.none };
+  const ns = SM.numer_sub, nc = SM.numer_cmp; if ((ns && ns.attempted) || (nc && nc.attempted)) { d.numer = {}; if (ns && ns.attempted) d.numer.sub = { small: ns.small, four: ns.four, large: ns.large, n: ns.attempted }; if (nc && nc.attempted) d.numer.cmp = { n: nc.attempted, pct: nc.pct, easy: nc.easy, hard: nc.hard, cong: nc.cong, incong: nc.incong, w: nc.weber && nc.weber.w }; }
   const al = Object.values(SM).find(x => x.kind === "letter" && x.attempted); if (al) d.letters = { upper: { c: al.parts.upper.c, n: al.parts.upper.n }, lower: { c: al.parts.lower.c, n: al.parts.lower.n } };
   const flS = Object.values(SM).find(x => x.kind === "fluency"), fl = flS && flS.flu;
   if (fl) { const fe = fluEquiv(fl.wcpm), acc = fl.attempted ? Math.round(100 * (fl.attempted - fl.errors) / fl.attempted) : null; d.flu = { wcpm: fl.wcpm, acc, below: fe ? !!fe.below : null, belowExpected: fluencyBelow(fl.wcpm, ref) }; }
@@ -1699,7 +1857,10 @@ function buildReport() {
   html += `<h2>Summary of results</h2>`;
   const sumRows = [];
   PLAN.forEach(k => { const sm = SM[k]; if (!sm.attempted) return;
-    if (sm.kind === "letter") sumRows.push(["Letter recognition", `Capitals ${sm.parts.upper.c} of ${sm.parts.upper.n || 26}; small letters ${sm.parts.lower.c} of ${sm.parts.lower.n || 26}`, "", "No age band"]);
+    if (sm.kind === "numid") sumRows.push(["Maths, reading numbers", `Numbers 0 to 10: ${sm.p1.c} of ${sm.p1.n}; numbers 11 to 100: ${sm.p2.c} of ${sm.p2.n}`, sm.rev ? `${sm.rev} reversal${sm.rev > 1 ? "s" : ""}` : "", "No age band (informal; no norms)"]);
+    else if (sm.kind === "letter") sumRows.push(["Letter recognition", `Capitals ${sm.parts.upper.c} of ${sm.parts.upper.n || 26}; small letters ${sm.parts.lower.c} of ${sm.parts.lower.n || 26}`, "", "No age band"]);
+    else if (sm.kind === "dots") sumRows.push([TESTS[k].title.replace(/^Maths: /, "Maths, "), `${sm.correct} of ${sm.attempted} (${sm.pct}%)`, `1 to 3 dots: ${sm.small.c} of ${sm.small.n}; 5 to 9 dots: ${sm.large.c} of ${sm.large.n}`, "No age band (informal; no norms)"]);
+    else if (sm.kind === "cmp") sumRows.push([TESTS[k].title.replace(/^Maths: /, "Maths, "), `${sm.correct} of ${sm.attempted} (${sm.pct}%; chance is 50%)`, `Easiest ratios: ${sm.easy.c} of ${sm.easy.n}; closest ratios: ${sm.hard.c} of ${sm.hard.n}`, "No age band (informal; no norms)"]);
     else if (sm.kind === "pa") sumRows.push([TESTS[k].title.replace("Phonological awareness: ", "Phonological awareness, "), `${sm.correct} of ${sm.attempted} (${sm.pct}%)`, "", "No age band (informal; no norms)"]);
     else if (sm.kind === "fluency") sumRows.push([TESTS[k].title, sm.flu ? `${sm.flu.wcpm} words correct per minute` : "no result", sm.flu ? `Accuracy ${sm.flu.attempted ? Math.round(100 * (sm.flu.attempted - sm.flu.errors) / sm.flu.attempted) : 0}%` : "", sm.flu ? fluencyEquivText(sm.flu) : ""]);
     else if (sm.kind === "ran") sumRows.push([TESTS[k].title, sm.ran.map(r => r.skipped ? `${r.label}: not timed` : `${r.label}: ${r.secs} s`).join("; "), "", "No norms"]);
@@ -1709,7 +1870,7 @@ function buildReport() {
   html += aeOn() ? table(["Activity", "Score", "Highest level / span", "Approximate age band"], sumRows) : table(["Activity", "Score", "Level estimate (80% confidence)"], sumRows.map(r => r.slice(0, 3)));
   html += `<p class="note">Year groups and ages describe the curriculum level of the material the child managed, not the child's age. Levels for the graded activities are explained in the appendix.</p>`;
 
-  PLAN.forEach(k => { if (!SM[k].attempted) return; const kd = SM[k].kind; html += kd === "span" ? spanSection(k, SM[k]) : (kd === "ran" ? ranSection(k, SM[k]) : (kd === "letter" ? letterSection(k, SM[k]) : (kd === "pa" ? paSection(k, SM[k]) : (kd === "fluency" ? fluencySection(k, SM[k]) : gradedSection(k, SM[k]))))); });
+  PLAN.forEach(k => { if (!SM[k].attempted) return; const kd = SM[k].kind; html += kd === "span" ? spanSection(k, SM[k]) : (kd === "ran" ? ranSection(k, SM[k]) : (kd === "letter" ? letterSection(k, SM[k]) : kd === "numid" ? numidSection(k, SM[k]) : (kd === "pa" ? paSection(k, SM[k]) : kd === "dots" ? dotsSection(k, SM[k]) : kd === "cmp" ? cmpSection(k, SM[k]) : (kd === "fluency" ? fluencySection(k, SM[k]) : gradedSection(k, SM[k]))))); });
 
   const wm = spanNarrative(SM), cmp = compareNarrative(SM);
   if (wm.length || cmp.length) {
@@ -1782,6 +1943,10 @@ function qaSection() {
     if (typeOf(k) === "letter") {
       const rows = rs.map(r => { const it = ITEMBY[r.item_id]; return [r.ord, it ? it.payload.text : r.item_id, it ? it.payload.case : "", r.mark ? "✓" : "✗", r.child_answer || ""]; });
       html += table(["#", "Letter", "Case", "Read correctly", "What the child said"], rows); return;
+    }
+    if (typeOf(k) === "numid") {
+      const rows = rs.map(r => { const it = ITEMBY[r.item_id]; return [r.ord, it ? it.payload.text : r.item_id, r.mark ? "✓" : "✗", r.child_answer || ""]; });
+      html += table(["#", "Number shown", "Read correctly", "What the child said"], rows); return;
     }
     if (k === "comp") {
       const seen = new Set();
