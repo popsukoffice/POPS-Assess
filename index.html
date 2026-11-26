@@ -269,8 +269,8 @@ setInterval(function(){ try { if (!window.POPS_VIDEO_ACTIVE && window.speechSynt
   if (TTS) (function () {
     const speakOrig = speechSynthesis.speak.bind(speechSynthesis), cancelOrig = speechSynthesis.cancel.bind(speechSynthesis);
     let gen = 0, pendingN = 0, endT = null;
-    const done = g => { if (g !== gen) return; if (--pendingN <= 0) { pendingN = 0; clearTimeout(endT); endT = setTimeout(() => { if (window.POPSVideo) POPSVideo.speechEnd(); }, 500); } };
-    speechSynthesis.cancel = function () { gen++; if (pendingN > 0) { pendingN = 0; clearTimeout(endT); endT = setTimeout(() => { if (window.POPSVideo) POPSVideo.speechEnd(); }, 500); } return cancelOrig(); };
+    const done = g => { if (g !== gen) return; if (--pendingN <= 0) { pendingN = 0; clearTimeout(endT); endT = setTimeout(() => { if (window.POPSVideo) POPSVideo.speechEnd(); }, 900); } };
+    speechSynthesis.cancel = function () { gen++; if (pendingN > 0) { pendingN = 0; clearTimeout(endT); endT = setTimeout(() => { if (window.POPSVideo) POPSVideo.speechEnd(); }, 900); } return cancelOrig(); };
     speechSynthesis.speak = function (u) {
       if (!window.POPS_VIDEO_ACTIVE || !window.POPSVideo || u.volume === 0) return speakOrig(u);
       const g = gen; pendingN++; clearTimeout(endT);
@@ -279,7 +279,8 @@ setInterval(function(){ try { if (!window.POPS_VIDEO_ACTIVE && window.speechSynt
     };
   })();
   function warmUp() { if (!TTS) return; try { const u = utter("ready", 1); u.volume = 0; speechSynthesis.speak(u); } catch (e) {} }
-  function stopSay() { sayTimers.forEach(clearTimeout); sayTimers = []; if (TTS) { try { speechSynthesis.cancel(); speechSynthesis.resume(); } catch (e) {} } }
+  let chainGen = 0;
+  function stopSay() { chainGen++; sayTimers.forEach(clearTimeout); sayTimers = []; if (TTS) { try { speechSynthesis.cancel(); speechSynthesis.resume(); } catch (e) {} } }
   function playSeq(items, gap) {
     stopSay();
     warmUp();
@@ -288,7 +289,18 @@ setInterval(function(){ try { if (!window.POPS_VIDEO_ACTIVE && window.speechSynt
   function playText(text, rate) {
     stopSay();
     warmUp();
-    (String(text).match(/[^.!?]+[.!?]*/g) || [text]).map(x => x.trim()).filter(Boolean).forEach((x, i) => { if (i === 0) x = ", " + x; speechSynthesis.speak(utter(x, rate)); });
+    const parts = (String(text).match(/[^.!?]+[.!?]*/g) || [text]).map(x => x.trim()).filter(Boolean).map((x, i) => i === 0 ? ", " + x : x);
+    // One sentence at a time, each started when the last one finishes, so long stories never stall part-way.
+    const my = chainGen; let i = 0;
+    const next = () => {
+      if (my !== chainGen || i >= parts.length) return;
+      const txt = parts[i++], u = utter(txt, rate); let fired = false, wd = null;
+      const go = (stuck) => { if (fired) return; fired = true; clearTimeout(wd); if (my !== chainGen) return; if (stuck) { try { speechSynthesis.cancel(); speechSynthesis.resume(); } catch (e) {} } setTimeout(() => { if (my === chainGen) next(); }, 150); };
+      u.onend = () => go(false); u.onerror = () => go(false);
+      wd = setTimeout(() => go(true), Math.max(5000, txt.length * 140 + 3000));
+      speechSynthesis.speak(u);
+    };
+    next();
   }
   async function soundReady() {
     soundOn = true; $("snd").hidden = true; $("snd-ok").hidden = false;
