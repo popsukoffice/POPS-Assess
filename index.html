@@ -265,6 +265,19 @@ setInterval(function(){ try { if (!window.POPS_VIDEO_ACTIVE && window.speechSynt
   function utter(t, rate) {
     const u = new SpeechSynthesisUtterance(t); if (voice) u.voice = voice; u.lang = voice ? voice.lang : "en-GB"; u.rate = rate || 0.9; return u;
   }
+  // While the video call is on, the microphone is released during read-aloud so the tablet can speak, then taken back.
+  if (TTS) (function () {
+    const speakOrig = speechSynthesis.speak.bind(speechSynthesis), cancelOrig = speechSynthesis.cancel.bind(speechSynthesis);
+    let gen = 0, pendingN = 0, endT = null;
+    const done = g => { if (g !== gen) return; if (--pendingN <= 0) { pendingN = 0; clearTimeout(endT); endT = setTimeout(() => { if (window.POPSVideo) POPSVideo.speechEnd(); }, 500); } };
+    speechSynthesis.cancel = function () { gen++; if (pendingN > 0) { pendingN = 0; clearTimeout(endT); endT = setTimeout(() => { if (window.POPSVideo) POPSVideo.speechEnd(); }, 500); } return cancelOrig(); };
+    speechSynthesis.speak = function (u) {
+      if (!window.POPS_VIDEO_ACTIVE || !window.POPSVideo || u.volume === 0) return speakOrig(u);
+      const g = gen; pendingN++; clearTimeout(endT);
+      const fin = () => done(g); u.addEventListener("end", fin); u.addEventListener("error", fin);
+      POPSVideo.speechStart().then(() => { if (g === gen) speakOrig(u); });
+    };
+  })();
   function warmUp() { if (!TTS) return; try { const u = utter("ready", 1); u.volume = 0; speechSynthesis.speak(u); } catch (e) {} }
   function stopSay() { sayTimers.forEach(clearTimeout); sayTimers = []; if (TTS) { try { speechSynthesis.cancel(); speechSynthesis.resume(); } catch (e) {} } }
   function playSeq(items, gap) {

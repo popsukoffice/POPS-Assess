@@ -18,7 +18,7 @@
 
   function Link(opts) {
     // opts: role, call(msg|null, after) -> Promise<{ended, rows:[{id,msg}]}>, iceServers, onStatus(text), onRemote(stream|null), onLocal(stream|null), onEnded()
-    var audioOnly = false, pending = [], cto = null, wd = null, stalls = 0, lastT = -1, lastReco = 0;
+    var micOn = true, micReleased = false, audioOnly = false, pending = [], cto = null, wd = null, stalls = 0, lastT = -1, lastReco = 0;
     var role = opts.role, call = opts.call, after = 0, pc = null, local = null, timer = null, active = false, queue = [], haveRemote = false, fast = false, stopped = false;
     function status(t) { if (opts.onStatus) opts.onStatus(t); }
     async function send(msg) { for (var i = 0; i < 3; i++) { try { var r = await call(msg, after); handle(r); return; } catch (e) { await new Promise(function (ok) { setTimeout(ok, 400); }); } } }
@@ -130,7 +130,21 @@
       decline: async function () { await send({ t: "decline" }); },
       reconnect: function () { lastReco = 0; reconnect(); },
       end: async function () { await send({ t: "bye" }); teardown(false); status("Video ended."); },
-      setMic: function (on) { if (local) local.getAudioTracks().forEach(function (t) { t.enabled = on; }); },
+      // The tablet cannot speak (text-to-speech) while the microphone is in use, so the mic is let go during read-aloud and taken back afterwards.
+      releaseMic: async function () {
+        if (!active || !local || micReleased) return; micReleased = true;
+        local.getAudioTracks().forEach(function (t) { try { t.stop(); local.removeTrack(t); } catch (e) { } });
+        if (pc) pc.getSenders().forEach(function (sn) { if (sn.track && sn.track.kind === "audio") { try { sn.replaceTrack(null); } catch (e) { } } });
+      },
+      restoreMic: async function () {
+        if (!micReleased) return; micReleased = false; if (!active || !local) return;
+        try {
+          var a = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+          var t = a.getAudioTracks()[0]; if (!t) return; t.enabled = micOn; local.addTrack(t);
+          if (pc) { var tr = pc.getTransceivers().find(function (x) { return x.receiver && x.receiver.track && x.receiver.track.kind === "audio"; }); if (tr && tr.sender) await tr.sender.replaceTrack(t); }
+        } catch (e) { }
+      },
+      setMic: function (on) { micOn = on; if (local) local.getAudioTracks().forEach(function (t) { t.enabled = on; }); },
       setCam: function (on) { if (local) local.getVideoTracks().forEach(function (t) { t.enabled = on; }); },
       destroy: function () { stopped = true; clearTimeout(timer); teardown(true); }
     };
@@ -208,5 +222,12 @@
     return link;
   }
 
-  root.POPSVideo = { mountAssessor: mountAssessor, mountChild: mountChild, stop: destroyCur };
+  var micGate = null;
+  function speechStart() {
+    if (!cur || !cur.link || !root.POPS_VIDEO_ACTIVE) return Promise.resolve();
+    if (!micGate) micGate = cur.link.releaseMic().then(function () { return new Promise(function (ok) { setTimeout(ok, 350); }); });
+    return micGate;
+  }
+  function speechEnd() { micGate = null; if (cur && cur.link) cur.link.restoreMic(); }
+  root.POPSVideo = { mountAssessor: mountAssessor, mountChild: mountChild, stop: destroyCur, speechStart: speechStart, speechEnd: speechEnd };
 })(typeof window !== "undefined" ? window : this);
