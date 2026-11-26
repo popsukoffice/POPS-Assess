@@ -185,7 +185,7 @@
 <script src="video.js"></script>
 <script>
 window.__popsLoaded = true;
-setInterval(function(){ try { if (window.speechSynthesis && !speechSynthesis.speaking) { var u = new SpeechSynthesisUtterance("."); u.volume = 0; speechSynthesis.speak(u); } } catch (e) {} }, 20000);
+setInterval(function(){ try { if (!window.POPS_VIDEO_ACTIVE && window.speechSynthesis && !speechSynthesis.speaking) { var u = new SpeechSynthesisUtterance("."); u.volume = 0; speechSynthesis.speak(u); } } catch (e) {} }, 20000);
 (() => {
   const $ = id => document.getElementById(id);
   const CFG = window.ASSESS_CFG || {};

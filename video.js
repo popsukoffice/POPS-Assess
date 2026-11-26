@@ -18,6 +18,7 @@
 
   function Link(opts) {
     // opts: role, call(msg|null, after) -> Promise<{ended, rows:[{id,msg}]}>, iceServers, onStatus(text), onRemote(stream|null), onLocal(stream|null), onEnded()
+    var wd = null, stalls = 0, lastT = -1, lastReco = 0;
     var role = opts.role, call = opts.call, after = 0, pc = null, local = null, timer = null, active = false, queue = [], haveRemote = false, fast = false, stopped = false;
     function status(t) { if (opts.onStatus) opts.onStatus(t); }
     async function send(msg) { try { var r = await call(msg, after); handle(r); } catch (e) { /* retry on next poll */ } }
@@ -43,7 +44,7 @@
         else if (s === "failed") status("The video could not connect on this network. The assessment can carry on without video.");
         else if (s === "disconnected") status("Video interrupted, trying to reconnect…");
       };
-      if (local) local.getTracks().forEach(function (t) { pc.addTrack(t, local); });
+      if (local) local.getTracks().forEach(function (t) { var s = pc.addTrack(t, local); if (t.kind === "video" && s && s.getParameters) { try { var p = s.getParameters(); if (!p.encodings || !p.encodings.length) p.encodings = [{}]; p.encodings[0].maxBitrate = role === "child" ? 250000 : 400000; s.setParameters(p); } catch (e) { } } });
       return pc;
     }
     function closePC() { if (pc) { try { pc.ontrack = pc.onicecandidate = pc.onconnectionstatechange = null; pc.close(); } catch (e) { } pc = null; } }
@@ -52,6 +53,7 @@
     async function onMsg(m) {
       if (!m || !m.t) return;
       if (m.t === "bye") { teardown(false); status(role === "assessor" ? "The child ended the video." : "The assessor ended the video."); return; }
+      if (m.t === "refresh" && role === "child") { if (active && local) { status("Reconnecting…"); await send({ t: "ready" }); } return; }
       if (role === "assessor") {
         if (m.t === "decline") { teardown(false); status("The child chose not to use video."); }
         else if (m.t === "ready" && active) {
@@ -70,35 +72,61 @@
     }
     async function getMedia() {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error("This browser cannot use the camera here. Use Safari or Chrome over a secure (https) link.");
-      try { return await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" }, audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } }); }
+      var small = role === "child"; try { return await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: small ? 320 : 480 }, height: { ideal: small ? 240 : 360 }, frameRate: { ideal: 15, max: 20 }, facingMode: "user" }, audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } }); }
       catch (e) {
         try { var a = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } }); status("Camera not available, using sound only."); return a; }
         catch (e2) { throw new Error("The camera and microphone were blocked. Allow them in the browser, then try again."); }
       }
     }
     function teardown(silent) {
-      active = false; fast = false; closePC();
+      active = false; fast = false; closePC(); root.POPS_VIDEO_ACTIVE = false; clearInterval(wd); stalls = 0;
       if (local) { local.getTracks().forEach(function (t) { t.stop(); }); local = null; }
       if (opts.onRemote) opts.onRemote(null); if (opts.onLocal) opts.onLocal(null);
       if (opts.onState) opts.onState(false);
       if (silent) status("");
+    }
+    function reconnect() {
+      if (!active || Date.now() - lastReco < 8000) return; lastReco = Date.now(); stalls = 0; status("Reconnecting…");
+      if (role === "child") send({ t: "ready" }); else send({ t: "refresh" });
+    }
+    async function fixLocal() {
+      if (!local || !pc) return; var v = local.getVideoTracks()[0];
+      if (v && v.readyState === "ended") {
+        try { var fresh = await getMedia(); var nv = fresh.getVideoTracks()[0], na = fresh.getAudioTracks()[0];
+          pc.getSenders().forEach(function (sn) { if (sn.track && sn.track.kind === "video" && nv) sn.replaceTrack(nv); if (sn.track && sn.track.kind === "audio" && na) sn.replaceTrack(na); });
+          local.getTracks().forEach(function (t) { t.stop(); }); local = fresh; if (opts.onLocal) opts.onLocal(local);
+        } catch (e) { }
+      }
+    }
+    function watch() {
+      clearInterval(wd);
+      wd = setInterval(function () {
+        if (!active) return;
+        var el = opts.getRemoteEl ? opts.getRemoteEl() : null;
+        if (el && el.srcObject) {
+          if (el.paused) { var p = el.play(); if (p && p.catch) p.catch(function () { }); }
+          if (pc && pc.connectionState === "connected") { if (el.currentTime === lastT) { if (++stalls >= 3) reconnect(); } else { stalls = 0; } lastT = el.currentTime; }
+        }
+        fixLocal();
+      }, 2500);
     }
     return {
       begin: function () { stopped = false; clearTimeout(timer); timer = setTimeout(poll, 50); },
       // assessor
       startInvite: async function () {
         local = await getMedia(); if (opts.onLocal) opts.onLocal(local); active = true; fast = true;
-        if (opts.onState) opts.onState(true);
+        if (opts.onState) opts.onState(true); root.POPS_VIDEO_ACTIVE = true; watch();
         status("Waiting for the child to allow video…");
         await send({ t: "start" }); await send({ t: "invite" });
       },
       // child
       accept: async function () {
         local = await getMedia(); if (opts.onLocal) opts.onLocal(local); active = true; fast = true;
-        if (opts.onState) opts.onState(true);
+        if (opts.onState) opts.onState(true); root.POPS_VIDEO_ACTIVE = true; watch();
         status("Connecting…"); await send({ t: "ready" });
       },
       decline: async function () { await send({ t: "decline" }); },
+      reconnect: function () { lastReco = 0; reconnect(); },
       end: async function () { await send({ t: "bye" }); teardown(false); status("Video ended."); },
       setMic: function (on) { if (local) local.getAudioTracks().forEach(function (t) { t.enabled = on; }); },
       setCam: function (on) { if (local) local.getVideoTracks().forEach(function (t) { t.enabled = on; }); },
@@ -118,26 +146,28 @@
     var bGo = $el("button", { class: "pv-go", type: "button", text: "Start video" });
     var bMic = $el("button", { type: "button", text: "Mute me", style: "display:none" });
     var bCam = $el("button", { type: "button", text: "Camera off", style: "display:none" });
+    var bFix = $el("button", { type: "button", text: "Reconnect", style: "display:none" });
     var bEnd = $el("button", { class: "pv-end", type: "button", text: "End video", style: "display:none" });
     var bHide = $el("button", { type: "button", text: "Hide", "aria-expanded": "true" });
     var stage = $el("div", { style: "position:relative;display:none" }, [rv, lv]);
     var title = $el("div", { style: "font-weight:700;font-size:.85rem" , text: "Video with the child" });
-    var body = $el("div", {}, [title, stage, msg, $el("div", { class: "pv-row" }, [bGo, bMic, bCam, bEnd, bHide])]);
+    var body = $el("div", {}, [title, stage, msg, $el("div", { class: "pv-row" }, [bGo, bMic, bCam, bFix, bEnd, bHide])]);
     var box = $el("div", { class: "pv-box noprint", style: "right:8px;bottom:8px;width:260px", role: "region", "aria-label": "Video with the child" }, [body]);
     document.body.appendChild(box);
     var mic = true, cam = true;
     var link = Link({
-      role: "assessor", call: opts.call, iceServers: opts.iceServers,
+      role: "assessor", call: opts.call, iceServers: opts.iceServers, getRemoteEl: function () { return rv; },
       onStatus: function (t) { msg.textContent = t; },
       onRemote: function (s) { rv.srcObject = s || null; stage.style.display = s ? "block" : stage.style.display; if (s) { var p = rv.play(); if (p && p.catch) p.catch(function () { }); } },
       onLocal: function (s) { lv.srcObject = s || null; stage.style.display = s ? "block" : "none"; },
-      onState: function (on) { bGo.style.display = on ? "none" : ""; bMic.style.display = bCam.style.display = bEnd.style.display = on ? "" : "none"; if (!on) { mic = cam = true; bMic.textContent = "Mute me"; bCam.textContent = "Camera off"; } },
+      onState: function (on) { bGo.style.display = on ? "none" : ""; bMic.style.display = bCam.style.display = bFix.style.display = bEnd.style.display = on ? "" : "none"; if (!on) { mic = cam = true; bMic.textContent = "Mute me"; bCam.textContent = "Camera off"; } },
       onEnded: function () { msg.textContent = "The session has ended, so video has stopped."; }
     });
     bGo.onclick = async function () { bGo.disabled = true; try { await link.startInvite(); } catch (e) { msg.textContent = e.message; } bGo.disabled = false; };
     bMic.onclick = function () { mic = !mic; link.setMic(mic); bMic.textContent = mic ? "Mute me" : "Unmute me"; };
     bCam.onclick = function () { cam = !cam; link.setCam(cam); bCam.textContent = cam ? "Camera off" : "Camera on"; };
     bEnd.onclick = function () { link.end(); };
+    bFix.onclick = function () { link.reconnect(); };
     bHide.onclick = function () { var open = body.style.display !== "none"; var kids = box.firstChild.children; stage.style.display = open ? "none" : (rv.srcObject || lv.srcObject ? "block" : "none"); bHide.textContent = open ? "Show video" : "Hide"; bHide.setAttribute("aria-expanded", String(!open)); msg.style.display = open ? "none" : ""; title.style.display = open ? "none" : ""; };
     link.begin(); cur = { link: link, box: box };
     return link;
@@ -149,8 +179,9 @@
     var msg = $el("div", { class: "pv-msg", role: "status", "aria-live": "polite" });
     var bMic = $el("button", { type: "button", text: "Mute me" });
     var bCam = $el("button", { type: "button", text: "Hide my camera" });
+    var bFix = $el("button", { type: "button", text: "Fix video" });
     var bEnd = $el("button", { class: "pv-end", type: "button", text: "Stop video" });
-    var video = $el("div", { class: "pv-box", style: "left:8px;bottom:8px;width:200px;display:none", role: "region", "aria-label": "Video call with your assessor" }, [rv, msg, $el("div", { class: "pv-row" }, [bMic, bCam, bEnd])]);
+    var video = $el("div", { class: "pv-box", style: "left:8px;bottom:8px;width:200px;display:none", role: "region", "aria-label": "Video call with your assessor" }, [rv, msg, $el("div", { class: "pv-row" }, [bMic, bCam, bFix, bEnd])]);
     var ask = $el("div", { class: "pv-box", style: "left:50%;transform:translateX(-50%);bottom:12px;width:min(92vw,420px);display:none;padding:14px", role: "dialog", "aria-label": "Video request" });
     var yes = $el("button", { class: "pv-go", type: "button", text: "Yes, turn on video", style: "font-size:1rem;padding:12px 14px" });
     var no = $el("button", { type: "button", text: "No thanks", style: "font-size:1rem;padding:12px 14px" });
@@ -158,7 +189,7 @@
     document.body.append(video, ask);
     var mic = true, cam = true;
     var link = Link({
-      role: "child", call: opts.call, iceServers: opts.iceServers,
+      role: "child", call: opts.call, iceServers: opts.iceServers, getRemoteEl: function () { return rv; },
       onStatus: function (t) { msg.textContent = t; },
       onRemote: function (s) { rv.srcObject = s || null; if (s) { var p = rv.play(); if (p && p.catch) p.catch(function () { }); } },
       onState: function (on) { video.style.display = on ? "block" : "none"; if (!on) { mic = cam = true; bMic.textContent = "Mute me"; bCam.textContent = "Hide my camera"; } },
@@ -170,6 +201,7 @@
     bMic.onclick = function () { mic = !mic; link.setMic(mic); bMic.textContent = mic ? "Mute me" : "Unmute me"; };
     bCam.onclick = function () { cam = !cam; link.setCam(cam); bCam.textContent = cam ? "Hide my camera" : "Show my camera"; };
     bEnd.onclick = function () { link.end(); };
+    bFix.onclick = function () { link.reconnect(); };
     link.begin(); cur = { link: link, box: video, ask: ask };
     return link;
   }
