@@ -610,14 +610,21 @@ let sayRate = 0.9, localTimers = [], CHILD_SOUND = false;
 const realAnswer = () => { const a = childAnswer && childAnswer.seq === S.stimulus_seq ? childAnswer.answer : (childAnswer ? childAnswer.answer : null); return a == null || String(a).startsWith("__") ? null : a; };
 function localVoice() { const vs = speechSynthesis.getVoices(); return vs.find(v => /en[-_]GB/i.test(v.lang)) || vs.find(v => /^en/i.test(v.lang)) || null; }
 function localUtter(t, r) { const u = new SpeechSynthesisUtterance(t), v = localVoice(); if (v) { u.voice = v; u.lang = v.lang; } else u.lang = "en-GB"; u.rate = r; return u; }
-function stopLocal() { localTimers.forEach(clearTimeout); localTimers = []; if (TTS) speechSynthesis.cancel(); }
+function stopLocal() { localTimers.forEach(clearTimeout); localTimers = []; if (localClip) { try { localClip.pause(); } catch (e) { } localClip = null; } if (TTS) speechSynthesis.cancel(); }
 function playLocal(cmd) {
+  if (cmd && cmd.kind === "text" && cmd.text) { stopLocal(); const au = new Audio(clipName(String(cmd.text))); localClip = au; au.onerror = () => { localClip = null; playLocalTTS(cmd); }; au.play().catch(() => { localClip = null; playLocalTTS(cmd); }); return; }
+  playLocalTTS(cmd);
+}
+function playLocalTTS(cmd) {
   if (!TTS) { alert("This browser cannot speak. Use Chrome, Edge or Safari."); return; }
   stopLocal();
   if (cmd.kind === "seq") cmd.items.forEach((x, i) => localTimers.push(setTimeout(() => speechSynthesis.speak(localUtter(/^\d$/.test(String(x)) ? DIG[Number(x)] : String(x), 0.8)), 400 + i * cmd.gap)));
   else if (cmd.kind === "text") (String(cmd.text).match(/[^.!?]+[.!?]*/g) || [cmd.text]).map(x => x.trim()).filter(Boolean).forEach(x => speechSynthesis.speak(localUtter(x, cmd.rate)));
 }
+const clipName = s => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; } return "audio/" + h.toString(16).padStart(8, "0") + "-" + s.length + ".mp3"; };
+let localClip = null;
 async function sayToChild(cmd) {
+  if (cmd && cmd.kind === "text" && cmd.text) cmd = { ...cmd, audio: clipName(String(cmd.text)) };
   if (isPV()) { playLocal(cmd); return; }
   if (!CHILD_SOUND && !confirm("Sound has not been confirmed on the child's device yet. Ask them to tap 'Tap to turn on sound'. Send anyway?")) return;
   const st = { ...(S.stimulus || {}), say: { ...cmd, n: Date.now() } };

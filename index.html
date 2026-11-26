@@ -280,7 +280,15 @@ setInterval(function(){ try { if (!window.POPS_VIDEO_ACTIVE && window.speechSynt
   })();
   function warmUp() { if (!TTS) return; try { const u = utter("ready", 1); u.volume = 0; speechSynthesis.speak(u); } catch (e) {} }
   let chainGen = 0;
-  function stopSay() { chainGen++; sayTimers.forEach(clearTimeout); sayTimers = []; if (TTS) { try { speechSynthesis.cancel(); speechSynthesis.resume(); } catch (e) {} } }
+  const clip = new Audio(); let clipTried = null;
+  function unlockClip() { try { clip.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAABErAAABAAgAZGF0YQAAAAA="; const p = clip.play(); if (p && p.catch) p.catch(() => {}); } catch (e) {} }
+  function playClip(c) {
+    stopSay(); const my = chainGen; clipTried = c.audio;
+    const fallback = () => { if (my === chainGen && clipTried === c.audio) { clipTried = null; playText(c.text || "", c.rate); } };
+    clip.onerror = fallback; clip.onended = () => { clipTried = null; };
+    try { clip.src = c.audio; const p = clip.play(); if (p && p.catch) p.catch(fallback); } catch (e) { fallback(); }
+  }
+  function stopSay() { chainGen++; try { clip.pause(); clipTried = null; } catch (e) {} sayTimers.forEach(clearTimeout); sayTimers = []; if (TTS) { try { speechSynthesis.cancel(); speechSynthesis.resume(); } catch (e) {} } }
   function playSeq(items, gap) {
     stopSay();
     warmUp();
@@ -306,7 +314,7 @@ setInterval(function(){ try { if (!window.POPS_VIDEO_ACTIVE && window.speechSynt
     soundOn = true; $("snd").hidden = true; $("snd-ok").hidden = false;
     try { await rpc("child_answer", { p_code: code, p_seq: seq, p_answer: "__sound_on" }); } catch {}
   }
-  $("snd").onclick = () => { if (TTS) { try { speechSynthesis.cancel(); speechSynthesis.resume(); const u = utter("Sound is on.", 0.9); speechSynthesis.speak(u); } catch (e) {} } soundReady(); };
+  $("snd").onclick = () => { unlockClip(); if (TTS) { try { speechSynthesis.cancel(); speechSynthesis.resume(); const u = utter("Sound is on.", 0.9); speechSynthesis.speak(u); } catch (e) {} } soundReady(); };
   function audioView(st) {
     const audio = !!st.audio && TTS; wantFast = audio && soundOn;
     $("snd").hidden = !audio || soundOn; $("snd-ok").hidden = !(audio && soundOn);
@@ -319,10 +327,10 @@ setInterval(function(){ try { if (!window.POPS_VIDEO_ACTIVE && window.speechSynt
     if (lastSay === null) { lastSay = c.n; return; }          // joined part-way: never replay old commands
     if (c.n === lastSay) return;
     lastSay = c.n;
-    if (!soundOn || !TTS) return;
+    if (!soundOn || (!TTS && !c.audio)) return;
     if (c.kind === "stop") stopSay();
     else if (c.kind === "seq") playSeq(c.items || [], c.gap || 1000);
-    else if (c.kind === "text") playText(c.text || "", c.rate);
+    else if (c.kind === "text") { if (c.audio) playClip(c); else playText(c.text || "", c.rate); }
   }
 
 
