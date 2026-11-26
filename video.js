@@ -18,10 +18,10 @@
 
   function Link(opts) {
     // opts: role, call(msg|null, after) -> Promise<{ended, rows:[{id,msg}]}>, iceServers, onStatus(text), onRemote(stream|null), onLocal(stream|null), onEnded()
-    var wd = null, stalls = 0, lastT = -1, lastReco = 0;
+    var pending = [], cto = null, wd = null, stalls = 0, lastT = -1, lastReco = 0;
     var role = opts.role, call = opts.call, after = 0, pc = null, local = null, timer = null, active = false, queue = [], haveRemote = false, fast = false, stopped = false;
     function status(t) { if (opts.onStatus) opts.onStatus(t); }
-    async function send(msg) { try { var r = await call(msg, after); handle(r); } catch (e) { /* retry on next poll */ } }
+    async function send(msg) { for (var i = 0; i < 3; i++) { try { var r = await call(msg, after); handle(r); return; } catch (e) { await new Promise(function (ok) { setTimeout(ok, 400); }); } } }
     function handle(r) {
       if (!r) return;
       if (r.ended) { stopped = true; teardown(true); if (opts.onEnded) opts.onEnded(); return; }
@@ -35,7 +35,8 @@
     function ice() { return (opts.iceServers && opts.iceServers.length) ? opts.iceServers : DEFAULT_ICE; }
     function makePC() {
       closePC();
-      pc = new RTCPeerConnection({ iceServers: ice() }); haveRemote = false; queue = [];
+      pc = new RTCPeerConnection({ iceServers: ice() }); haveRemote = false; queue = pending; pending = [];
+      clearTimeout(cto); cto = setTimeout(function () { if (pc && pc.connectionState !== "connected") status("Still trying to connect. If this does not work, the school network may be blocking video. The assessment can carry on without it."); }, 15000);
       pc.onicecandidate = function (e) { if (e.candidate) send({ t: "ice", c: e.candidate.toJSON ? e.candidate.toJSON() : e.candidate }); };
       pc.ontrack = function (e) { if (opts.onRemote) opts.onRemote(e.streams[0]); };
       pc.onconnectionstatechange = function () {
@@ -48,7 +49,7 @@
       return pc;
     }
     function closePC() { if (pc) { try { pc.ontrack = pc.onicecandidate = pc.onconnectionstatechange = null; pc.close(); } catch (e) { } pc = null; } }
-    async function addIce(c) { if (!pc) return; if (!haveRemote) { queue.push(c); return; } try { await pc.addIceCandidate(c); } catch (e) { } }
+    async function addIce(c) { if (!pc) { pending.push(c); return; } if (!haveRemote) { queue.push(c); return; } try { await pc.addIceCandidate(c); } catch (e) { } }
     async function flushIce() { haveRemote = true; var q = queue; queue = []; for (var i = 0; i < q.length; i++) { try { await pc.addIceCandidate(q[i]); } catch (e) { } } }
     async function onMsg(m) {
       if (!m || !m.t) return;
@@ -79,7 +80,7 @@
       }
     }
     function teardown(silent) {
-      active = false; fast = false; closePC(); root.POPS_VIDEO_ACTIVE = false; clearInterval(wd); stalls = 0;
+      active = false; fast = false; closePC(); pending = []; clearTimeout(cto); root.POPS_VIDEO_ACTIVE = false; clearInterval(wd); stalls = 0;
       if (local) { local.getTracks().forEach(function (t) { t.stop(); }); local = null; }
       if (opts.onRemote) opts.onRemote(null); if (opts.onLocal) opts.onLocal(null);
       if (opts.onState) opts.onState(false);
