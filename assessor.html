@@ -773,9 +773,21 @@ async function audioDone(res) {
 const PRACTICE = {
   word: { stim: { type: "word", text: "cat" }, expect: "cat" },
   nonword: { stim: { type: "word", text: "mib" }, expect: "mib (to rhyme with rib)" },
-  spell: { stim: { type: "spell", title: "Practice", text: "Listen to the word. Then type it.", audio: true }, say: "sun. The sun is hot. sun.", expect: "sun" },
+  spell: { stim: { type: "spell", title: "Practice", text: "Listen to the word. Then type it.", audio: true }, say: "Practice word. sun. The sun is hot. sun.", expect: "sun" },
   comp: { stim: { type: "mcq", passage: "Sam has a dog. The dog is brown.", q: "What colour is the dog?", options: ["brown", "black", "white", "red"] }, expect: "brown (first option)" },
   maths: { stim: { type: "num", q: "What is 1 + 1?" }, expect: "2" },
+  alpha: { stim: { type: "letters", title: "Practice", text: "Read the letters out loud, row by row. You can say the name or the sound.", letters: ["S", "m"] }, expect: "S and m (the name or the sound is fine)" },
+  fluency: { stim: { type: "passage", title: "Practice reading", text: "The sun is up. Tom has a red hat.", q: "" }, expect: "The child reads the two short sentences aloud. Do not time this. Say: \"In the real one I will say go, and you read as well as you can until I say stop.\"" },
+  pa_blend: { stim: { type: "listen", title: "Listen carefully", text: "Then answer out loud." }, expect: "Say the sounds /d/ /o/ /g/, one a second. Then ask: What is the word? Answer: dog. If needed, model it once." },
+  pa_seg: { stim: { type: "listen", title: "Listen carefully", text: "Then answer out loud." }, expect: "Say: \"up\". Ask the child to say each sound separately. Answer: /u/ /p/. If needed, model it once." },
+  pa_elis: { stim: { type: "listen", title: "Listen carefully", text: "Then answer out loud." }, expect: "Say \"toothbrush\". Now say it again without \"brush\". Answer: tooth. If needed, model it once." },
+  pa_iso: { stim: { type: "listen", title: "Listen carefully", text: "Then answer out loud." }, expect: "Ask: What is the first sound in \"dog\"? Answer: /d/ (the sound, not the letter name). If needed, model it once." },
+  dsf: { stim: { type: "listen", title: "Listen carefully", text: "Say the numbers back in the same order.", audio: true }, seq: { items: [3, 5], gap: 1000 }, expect: "3, 5 (same order)" },
+  dsb: { stim: { type: "listen", title: "Listen carefully", text: "Say the numbers backwards.", audio: true }, seq: { items: [4, 1], gap: 1000 }, expect: "1, 4 (backwards). Explain \"backwards\" with this example if needed." },
+  wsf: { stim: { type: "listen", title: "Listen carefully", text: "Say the words back in the same order.", audio: true }, seq: { items: ["dog", "sun"], gap: 1000 }, expect: "dog, sun (same order)" },
+  comp_open: { stim: { type: "passage", title: "Read the text", text: "Mia has a black cat. The cat sleeps on her bed.", q: "Tell me in your own words what happened in the story." }, expect: "Any answer that gives the idea, for example: Mia has a black cat that sleeps on her bed. Prompt once if the child gives one word." },
+  listen: { stim: { type: "listen", title: "Listen to the story", text: "Then answer the questions out loud.", audio: true }, say: [["Read practice story", "Ben has a red ball. He kicks it to his dog."], ["Read practice question", "What colour is the ball?"]], expect: "red" },
+  numid: { stim: { type: "letters", title: "Numbers", text: "Read the numbers out loud, row by row.", letters: ["2", "9"] }, expect: "two, nine" },
   numer_sub: { stim: { type: "dots", n: 3, kind: "dice", seed: 11, r: 4.4, ms: 1500 }, expect: "3 (the dots show once, then the child types the number)" },
   numer_cmp: { stim: { type: "cmp", nl: 12, nr: 4, cong: true, seed: 21, ms: 2500 }, expect: "LEFT (12 v 4; the child taps the side that had more)" }
 };
@@ -788,9 +800,10 @@ async function donePractice(again) {
 function drawPractice(tk) {
   const P = PRACTICE[tk], box = $("itembox"), marks = $("marks");
   box.append(h("p", { style: "font-weight:700" }, "Practice item (not scored)"), h("p", { class: "muted" }, "Check that the child understands what to do. Expected: " + P.expect));
-  if (P.say) { box.append(audioBar({ test_key: tk }, () => ({ kind: "text", text: P.say, rate: sayRate }), "Read practice word")); updSound(); }
+  if (P.say) { (typeof P.say === "string" ? [["Read practice word", P.say]] : P.say).forEach(([lab, tx]) => box.append(audioBar({ test_key: tk }, () => ({ kind: "text", text: tx, rate: sayRate }), lab))); updSound(); }
+  if (P.seq) { box.append(audioBar({ test_key: tk }, () => ({ kind: "seq", items: P.seq.items, gap: P.seq.gap }), "Read practice " + (tk === "wsf" ? "words" : "digits") + " at 1 per second")); updSound(); }
   if (["mcq", "num", "dots", "cmp"].includes(P.stim.type)) { const a = childAnswer && childAnswer.answer; box.append(h("p", {}, a == null ? "Waiting for the child's answer…" : "Child answered: " + (P.stim.type === "mcq" ? (P.stim.options[Number(a)] || a) : (P.stim.type === "cmp" ? (Number(a) === 0 ? "left" : "right") : a)))); }
-  marks.append(h("button", { class: "primary", on: { click: () => donePractice(false) } }, "Understood: start the real items"), h("button", { on: { click: () => donePractice(true) } }, "Practise again"));
+  marks.append(h("button", { class: "primary", on: { click: () => donePractice(false) } }, "Understood: start the real items"), h("button", { on: { click: () => donePractice(true) } }, "Practise again"), h("button", { on: { click: () => donePractice(false) } }, "Skip practice"));
 }
 function drawAudioCheck() {
   const w = S.setup.audiocheck.word, box = $("itembox"), marks = $("marks");
@@ -1154,7 +1167,7 @@ function drawItem(item) {
   } else if (p.type === "spell") {
     $("resp-label").textContent = "If the child did not type it, type what they wrote or spelled";
     box.append(h("div", { class: "big" }, p.text), h("div", { class: "script" }, p.sentence), h("div", { class: "muted" }, `Level ${item.level} (${(LV("spell", item.level) || {}).year_label || ""}). Say: "The word is ${p.text}. ${p.sentence} ${p.text}."`));
-    box.prepend(audioBar(item, () => ({ kind: "text", text: `${p.text}. ${p.sentence} ${p.text}.`, rate: sayRate }), "Read word"));
+    box.prepend(audioBar(item, () => { const ix = (ITEMS.spell || []).indexOf(item); return { kind: "text", text: `${ix >= 0 ? "Number " + (ix + 1) + ". " : ""}${p.text}. ${p.sentence} ${p.text}.`, rate: sayRate }; }, "Read word"));
     box.append(h("div", { class: "row", style: "align-items:center;gap:8px" }, h("label", { for: "sp-cls", style: "margin:0" }, "If wrong, error type:"), h("select", { id: "sp-cls" }, h("option", { value: "auto" }, "Automatic"), h("option", { value: "plausible" }, "Sounds right (plausible)"), h("option", { value: "nonplausible" }, "Does not sound right"))));
     updSound();
     marks.append(
