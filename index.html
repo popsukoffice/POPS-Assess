@@ -182,6 +182,7 @@
 
 <script src="config.js"></script>
 <script src="numerosity.js"></script>
+<script src="video.js"></script>
 <script>
 window.__popsLoaded = true;
 setInterval(function(){ try { if (window.speechSynthesis && !speechSynthesis.speaking) { var u = new SpeechSynthesisUtterance("."); u.volume = 0; speechSynthesis.speak(u); } } catch (e) {} }, 20000);
@@ -425,6 +426,7 @@ setInterval(function(){ try { if (window.speechSynthesis && !speechSynthesis.spe
       if (!render(view)) return;
       history.replaceState(null, "", "?c=" + code);
       startPoll();
+      if (window.POPSVideo) { const vc = code; POPSVideo.mountChild({ iceServers: CFG.iceServers, call: (msg, after) => rpc("video_signal", { p_code: vc, p_role: "child", p_msg: msg, p_after: after || 0 }) }); }
     } catch { $("join-msg").textContent = "Could not connect. Check the internet and try again."; }
   }
   $("go").onclick = join;

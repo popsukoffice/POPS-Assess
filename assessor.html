@@ -278,6 +278,7 @@
 <script src="config.js"></script>
 <script src="lib.js"></script>
 <script src="numerosity.js"></script>
+<script src="video.js"></script>
 <script src="conclusions.js"></script>
 <script src="reportexport.js"></script>
 <script>
@@ -500,7 +501,7 @@ function drawActs() {
   });
 }
 async function goHome() {
-  clearInterval(pollTimer); clearInterval(paceTimer); S = null;
+  clearInterval(pollTimer); clearInterval(paceTimer); S = null; if (window.POPSVideo) POPSVideo.stop();
   $("run").hidden = true; $("adminp").hidden = true; $("home").hidden = false;
   const { data } = await sb.from("assess_sessions").select("id, code, child_ref, test_key, plan, status, created_at, setup").order("created_at", { ascending: false }).limit(40);
   const box = $("sessions"); box.replaceChildren();
@@ -567,6 +568,7 @@ async function openSession(id) {
   CHILD_SOUND = false; FL = null; RN = null; RESP = resp || []; childAnswer = null; pushedAt = Date.parse((S.setup || {}).pushed_at || "") || 0;
   $("home").hidden = true; $("run").hidden = false;
   PV = { idx: 0 }; $("r-ref").textContent = (isPV() ? "Preview run: " : "Child: ") + S.child_ref + (sessionAge() ? ` (age ${ageText(sessionAge())})` : ""); $("r-code").textContent = S.code;
+  if (window.POPSVideo && !isPV()) { const vcode = S.code; POPSVideo.mountAssessor({ iceServers: (window.ASSESS_CFG || {}).iceServers, call: async (msg, after) => { const { data, error } = await sb.rpc("video_signal", { p_code: vcode, p_role: "assessor", p_msg: msg, p_after: after || 0 }); if (error) throw error; return data; } }); }
   const link = location.origin + location.pathname.replace(/assessor\.html$/, "") + "?c=" + S.code;
   $("r-link").textContent = link; $("copy-link").onclick = () => copyText(link);
   clearInterval(pollTimer); pollTimer = setInterval(poll, 1500);
