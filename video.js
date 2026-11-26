@@ -18,7 +18,7 @@
 
   function Link(opts) {
     // opts: role, call(msg|null, after) -> Promise<{ended, rows:[{id,msg}]}>, iceServers, onStatus(text), onRemote(stream|null), onLocal(stream|null), onEnded()
-    var pending = [], cto = null, wd = null, stalls = 0, lastT = -1, lastReco = 0;
+    var audioOnly = false, pending = [], cto = null, wd = null, stalls = 0, lastT = -1, lastReco = 0;
     var role = opts.role, call = opts.call, after = 0, pc = null, local = null, timer = null, active = false, queue = [], haveRemote = false, fast = false, stopped = false;
     function status(t) { if (opts.onStatus) opts.onStatus(t); }
     async function send(msg) { for (var i = 0; i < 3; i++) { try { var r = await call(msg, after); handle(r); return; } catch (e) { await new Promise(function (ok) { setTimeout(ok, 400); }); } } }
@@ -41,11 +41,11 @@
       pc.ontrack = function (e) { if (opts.onRemote) opts.onRemote(e.streams[0]); };
       pc.onconnectionstatechange = function () {
         var s = pc && pc.connectionState;
-        if (s === "connected") status(role === "assessor" ? "Connected" : "Connected");
+        if (s === "connected") status(audioOnly ? "Connected, but your camera is not available, so only sound is shared. Check that the browser is allowed to use the camera." : "Connected");
         else if (s === "failed") status("The video could not connect on this network. The assessment can carry on without video.");
         else if (s === "disconnected") status("Video interrupted, trying to reconnect…");
       };
-      if (local) local.getTracks().forEach(function (t) { var s = pc.addTrack(t, local); if (t.kind === "video" && s && s.getParameters) { try { var p = s.getParameters(); if (!p.encodings || !p.encodings.length) p.encodings = [{}]; p.encodings[0].maxBitrate = role === "child" ? 250000 : 400000; s.setParameters(p); } catch (e) { } } });
+      if (local) local.getTracks().forEach(function (t) { var s = pc.addTrack(t, local); if (t.kind === "video" && s && s.getParameters) { try { var p = s.getParameters(); if (!p.encodings || !p.encodings.length) p.encodings = [{}]; p.encodings[0].maxBitrate = role === "child" ? 250000 : 400000; p.encodings[0].maxFramerate = 15; s.setParameters(p); } catch (e) { } } });
       return pc;
     }
     function closePC() { if (pc) { try { pc.ontrack = pc.onicecandidate = pc.onconnectionstatechange = null; pc.close(); } catch (e) { } pc = null; } }
@@ -73,14 +73,15 @@
     }
     async function getMedia() {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error("This browser cannot use the camera here. Use Safari or Chrome over a secure (https) link.");
-      var small = role === "child"; try { return await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: small ? 320 : 480 }, height: { ideal: small ? 240 : 360 }, frameRate: { ideal: 15, max: 20 }, facingMode: "user" }, audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } }); }
+      var small = role === "child"; try { return await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: small ? 320 : 480 }, height: { ideal: small ? 240 : 360 }, facingMode: "user" }, audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } }); }
       catch (e) {
-        try { var a = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } }); status("Camera not available, using sound only."); return a; }
+        try { var v = await navigator.mediaDevices.getUserMedia({ video: true, audio: true }); return v; } catch (e1) { }
+        try { var a = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } }); audioOnly = true; status("Camera not available, using sound only."); return a; }
         catch (e2) { throw new Error("The camera and microphone were blocked. Allow them in the browser, then try again."); }
       }
     }
     function teardown(silent) {
-      active = false; fast = false; closePC(); pending = []; clearTimeout(cto); root.POPS_VIDEO_ACTIVE = false; clearInterval(wd); stalls = 0;
+      active = false; fast = false; audioOnly = false; closePC(); pending = []; clearTimeout(cto); root.POPS_VIDEO_ACTIVE = false; clearInterval(wd); stalls = 0;
       if (local) { local.getTracks().forEach(function (t) { t.stop(); }); local = null; }
       if (opts.onRemote) opts.onRemote(null); if (opts.onLocal) opts.onLocal(null);
       if (opts.onState) opts.onState(false);
