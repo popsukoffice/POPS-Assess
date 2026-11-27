@@ -241,13 +241,15 @@
           <div><label for="bio-assessor">Assessor name</label><input id="bio-assessor" autocomplete="off"></div>
           <div><label for="bio-role">Assessor role</label><input id="bio-role" autocomplete="off"></div>
           <div><label for="bio-hcpc">HCPC registration number (optional)</label><input id="bio-hcpc" autocomplete="off"></div>
+          <div><label for="bio-dob">Date of birth (saved with the session)</label><input id="bio-dob" type="date"></div>
+          <div><label for="bio-yg">Year group (saved with the session)</label><select id="bio-yg"></select></div>
         </div>
         <label for="bio-reason">Reason for the assessment</label><textarea id="bio-reason" rows="2"></textarea>
         <label for="bio-background">Background information (history, previous support, concerns)</label><textarea id="bio-background" rows="3"></textarea>
         <label for="bio-views">The child's views</label><textarea id="bio-views" rows="2"></textarea>
         <label for="bio-parent">Parent or carer views</label><textarea id="bio-parent" rows="2"></textarea>
         <label for="bio-obs">Your observations during the session (engagement, attention, effort, strategies)</label><textarea id="bio-obs" rows="3"></textarea>
-        <div class="row" style="margin-top:8px"><button class="primary" id="bio-save">Save details and update report</button><button id="bio-clear">Clear these details from this computer</button><span id="bio-msg" class="muted" role="status"></span></div>
+        <div class="row" style="margin-top:8px"><button class="primary" id="bio-save">Save details and regenerate report</button><button id="bio-clear">Clear these details from this computer</button><span id="bio-msg" class="muted" role="status"></span></div>
       </details>
 
       <div class="card" id="results" hidden>
@@ -1007,7 +1009,7 @@ function renderAll() {
   $("r-status").textContent = S.status; $("r-status").className = "pill " + S.status;
   $("r-plan").replaceChildren(...PLAN.map(k => h("li", { class: ended || PLAN.indexOf(k) < PLAN.indexOf(tk) ? "done" : (k === tk ? "now" : "") }, (TESTS[k] || {}).title || k)));
   $("live").hidden = ended; $("results").hidden = !ended; $("r-join").hidden = ended;
-  if (ended) { poolButtons(); return; }
+  if (ended) { poolButtons(); const bc = $("biocard"); if (bc.previousElementSibling !== $("results")) { $("results").after(bc); } bc.querySelector("summary").firstChild.textContent = "Report details to add or change, then regenerate the report: "; if (!bc.dataset.opened) { bc.open = true; bc.dataset.opened = "1"; } const b = getBio(), miss = [["first", "first name"], ["school", "school"], ["teacher", "teacher or SENCo"], ["reason", "reason for the assessment"], ["background", "background"], ["views", "child's views"], ["parent", "parent or carer views"], ["obs", "your observations"]].filter(([k]) => !b[k]).map(x => x[1]); if (!(S.setup || {}).dob) miss.push("date of birth"); if ((S.setup || {}).year_group == null) miss.push("year group"); $("bio-msg").textContent = miss.length ? "Still empty: " + miss.join(", ") + "." : ""; return; }
   const idle = !!(S.setup || {}).idle, intro = isIntro(), waiting = S.status === "waiting", paused = S.status === "paused", stopped = !idle && stopReached();
   const isLt = isGridT(tk);
   $("prog").textContent = idle ? "Between activities" : `${TESTS[tk].title}: ${waiting || intro ? "ready" : (isLt ? "part " + Math.min(Math.floor(curIdx() / 26) + 1, 2) + " of 2" : "item " + Math.min(curIdx() + 1, items.length) + " of " + items.length)}`;
@@ -1803,14 +1805,21 @@ function getBio() { let b = BIO_TMP[bioKey()] || {}; if (!BIO_TMP[bioKey()]) { t
   const d = defaultAssessor(); BIO_IDS.forEach(k => { if (b[k] == null) b[k] = ({ assessor: d.name, role: d.role, hcpc: d.hcpc })[k] || ""; }); return b; }
 function defaultAssessor() { let m = {}; try { m = JSON.parse(lsGet("pops_assessor") || "{}") || {}; } catch (e) { }
   return { name: m.name || (user && user.display_name) || "", role: m.role || "Educational Psychologist", hcpc: m.hcpc || (user && user.hcpc_no) || "" }; }
-function fillBioForm() { const b = getBio(); BIO_IDS.forEach(k => { const el = $("bio-" + k); if (el) el.value = b[k] || ""; }); $("bio-msg").textContent = ""; }
+function fillBioForm() { const b = getBio(); BIO_IDS.forEach(k => { const el = $("bio-" + k); if (el) el.value = b[k] || ""; }); { const yg = $("bio-yg"); if (!yg.options.length) yg.replaceChildren(...YEARS.map(([n, v]) => h("option", { value: v }, n))); yg.value = (S.setup || {}).year_group == null ? "" : String((S.setup || {}).year_group); $("bio-dob").value = (S.setup || {}).dob || ""; $("bio-dob").max = isoToday(); } $("bio-msg").textContent = ""; }
 function readBioForm() { const b = {}; BIO_IDS.forEach(k => { b[k] = ($("bio-" + k).value || "").trim(); }); return b; }
 function firstName() { return (getBio().first || "").trim(); }
-$("bio-save").onclick = () => {
+$("bio-save").onclick = async () => {
   const b = readBioForm();
+  { const dob = $("bio-dob").value, yg = $("bio-yg").value, st = S.setup || {};
+    if ((dob || "") !== (st.dob || "") || yg !== (st.year_group == null ? "" : String(st.year_group))) {
+      const setup = { ...st }; if (dob && ageYMD(dob, isoToday())) setup.dob = dob; else delete setup.dob;
+      if (yg === "") { delete setup.year_group; delete setup.year_name; } else { setup.year_group = yg; setup.year_name = $("bio-yg").selectedOptions[0].textContent; }
+      const { error } = await sb.from("assess_sessions").update({ setup }).eq("id", S.id);
+      if (error) { $("bio-msg").textContent = "Could not save the date of birth or year group: " + error.message; return; }
+      S.setup = setup; } }
   try { localStorage.setItem(bioKey(), JSON.stringify(b)); localStorage.setItem("pops_assessor", JSON.stringify({ name: b.assessor, role: b.role, hcpc: b.hcpc })); } catch (e) { $("bio-msg").textContent = "This browser would not save the details (private browsing?). They will be used for this report only."; BIO_TMP[bioKey()] = b; }
-  if (!$("results").hidden) { const had = lsGet("pops_rep_" + S.id); if (had && !confirm("Updating the report rebuilds it and removes edits you made in the report text. Continue?")) return; try { localStorage.removeItem("pops_rep_" + S.id); } catch (e) { } buildReport(); }
-  $("bio-msg").textContent = "Saved on this computer" + ($("results").hidden ? ". The report will use these details when it is created." : " and the report was updated.");
+  if (!$("results").hidden) { const had = lsGet("pops_rep_" + S.id) || (S.setup || {}).report_html; if (had && !confirm("Regenerating the report removes any edits you made in the report text. Continue?")) return; try { localStorage.removeItem("pops_rep_" + S.id); } catch (e) { } buildReport(); saveReport(); }
+  $("bio-msg").textContent = "Saved on this computer" + ($("results").hidden ? ". The report will use these details when it is created." : " and the report was regenerated.");
 };
 $("bio-clear").onclick = () => { if (!confirm("Remove the child's name, school and background from this computer? The report text already created is not changed.")) return; try { localStorage.removeItem(bioKey()); } catch (e) { } fillBioForm(); $("bio-msg").textContent = "Cleared."; };
 

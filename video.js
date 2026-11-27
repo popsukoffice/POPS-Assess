@@ -155,8 +155,8 @@
 
   function mountAssessor(opts) { // opts: call, iceServers
     destroyCur(); addCss();
-    var rv = $el("video", { playsinline: "", autoplay: "", style: "height:180px;width:100%" });
-    var lv = $el("video", { playsinline: "", autoplay: "", muted: "", style: "position:absolute;right:6px;bottom:6px;width:70px;height:52px;border:2px solid #fff;border-radius:8px" });
+    var rv = $el("video", { playsinline: "", autoplay: "", style: "width:100%;height:auto;max-height:70vh;min-height:120px;object-fit:contain;background:#111;display:block" });
+    var lv = $el("video", { playsinline: "", autoplay: "", muted: "", style: "position:absolute;right:6px;bottom:6px;width:64px;height:48px;object-fit:cover;border:2px solid #fff;border-radius:8px" });
     lv.muted = true;
     var msg = $el("div", { class: "pv-msg", role: "status", "aria-live": "polite" });
     var bGo = $el("button", { class: "pv-go", type: "button", text: "Start video" });
@@ -164,10 +164,12 @@
     var bCam = $el("button", { type: "button", text: "Camera off", style: "display:none" });
     var bFix = $el("button", { type: "button", text: "Reconnect", style: "display:none" });
     var bEnd = $el("button", { class: "pv-end", type: "button", text: "End video", style: "display:none" });
+    var bSelf = $el("button", { type: "button", text: "Hide my picture" });
+    var bSize = $el("button", { type: "button", text: "Bigger" });
     var bHide = $el("button", { type: "button", text: "Hide", "aria-expanded": "true" });
     var stage = $el("div", { style: "position:relative;display:none" }, [rv, lv]);
-    var title = $el("div", { style: "font-weight:700;font-size:.85rem" , text: "Video with the child" });
-    var body = $el("div", {}, [title, stage, msg, $el("div", { class: "pv-row" }, [bGo, bMic, bCam, bFix, bEnd, bHide])]);
+    var title = $el("div", { style: "font-weight:700;font-size:.85rem" , text: "Video with the child (drag to move)" });
+    var body = $el("div", {}, [title, stage, msg, $el("div", { class: "pv-row" }, [bGo, bMic, bCam, bFix, bEnd, bSelf, bSize, bHide])]);
     var box = $el("div", { class: "pv-box noprint", style: "right:8px;bottom:8px;width:260px", role: "region", "aria-label": "Video with the child" }, [body]);
     document.body.appendChild(box);
     var mic = true, cam = true;
@@ -179,6 +181,13 @@
       onState: function (on) { bGo.style.display = on ? "none" : ""; bMic.style.display = bCam.style.display = bFix.style.display = bEnd.style.display = on ? "" : "none"; if (!on) { mic = cam = true; bMic.textContent = "Mute me"; bCam.textContent = "Camera off"; } },
       onEnded: function () { msg.textContent = "The session has ended, so video has stopped."; }
     });
+    var sizes = [260, 380, 520, 700], si = 0;
+    bSize.onclick = function () { si = (si + 1) % sizes.length; box.style.width = "min(" + sizes[si] + "px,96vw)"; bSize.textContent = si === sizes.length - 1 ? "Smaller" : "Bigger"; };
+    bSelf.onclick = function () { var off = lv.style.display !== "none"; lv.style.display = off ? "none" : ""; bSelf.textContent = off ? "Show my picture" : "Hide my picture"; };
+    (function () { var dx = 0, dy = 0, drag = false; title.style.cursor = "move"; title.title = "Drag to move the video"; title.style.touchAction = "none";
+      title.addEventListener("pointerdown", function (e) { var r = box.getBoundingClientRect(); dx = e.clientX - r.left; dy = e.clientY - r.top; drag = true; try { title.setPointerCapture(e.pointerId); } catch (x) { } });
+      title.addEventListener("pointermove", function (e) { if (!drag) return; var x = Math.max(0, Math.min(window.innerWidth - 60, e.clientX - dx)), y = Math.max(0, Math.min(window.innerHeight - 40, e.clientY - dy)); box.style.left = x + "px"; box.style.top = y + "px"; box.style.right = "auto"; box.style.bottom = "auto"; });
+      title.addEventListener("pointerup", function () { drag = false; }); })();
     bGo.onclick = async function () { bGo.disabled = true; try { await link.startInvite(); } catch (e) { msg.textContent = e.message; } bGo.disabled = false; };
     bMic.onclick = function () { mic = !mic; link.setMic(mic); bMic.textContent = mic ? "Mute me" : "Unmute me"; };
     bCam.onclick = function () { cam = !cam; link.setCam(cam); bCam.textContent = cam ? "Camera off" : "Camera on"; };
